@@ -1,0 +1,3140 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Career Sandbox VR/AR | ห้องจำลองอาชีพเสมือนจริง</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts: Prompt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Supabase JS v2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+            background-image:
+                radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.08) 0%, transparent 35%),
+                radial-gradient(circle at 85% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 35%),
+                radial-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 28px 28px;
+        }
+
+        /* AR Simulated Spatial Grid */
+        .ar-simulated-bg {
+            background:
+                linear-gradient(180deg, rgba(2, 6, 23, 0.45) 0%, rgba(15, 23, 42, 0.25) 55%, rgba(2, 6, 23, 0.85) 100%),
+                repeating-linear-gradient(90deg, rgba(34, 211, 238, 0.16) 0px, rgba(34, 211, 238, 0.16) 1px, transparent 1px, transparent 42px),
+                repeating-linear-gradient(0deg, rgba(34, 211, 238, 0.16) 0px, rgba(34, 211, 238, 0.16) 1px, transparent 1px, transparent 42px),
+                radial-gradient(circle at 50% 45%, #0f172a 0%, #020617 100%);
+        }
+
+        /* AR Scanning Laser Beam */
+        @keyframes scanBeam {
+            0% { transform: translateY(-20px); opacity: 0; }
+            15% { opacity: 0.85; }
+            85% { opacity: 0.85; }
+            100% { transform: translateY(460px); opacity: 0; }
+        }
+        .ar-scan-beam {
+            animation: scanBeam 3.2s linear infinite;
+        }
+
+        /* Smooth Fade Up */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-up {
+            animation: fadeUp 0.35s ease-out forwards;
+        }
+
+        /* Interactive 3D Viewport */
+        #three-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            cursor: grab;
+            touch-action: none;
+        }
+        #three-container canvas:active {
+            cursor: grabbing;
+        }
+
+        /* Custom subtle scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+
+    <!-- ==================== TOP NAVIGATION BAR ==================== -->
+    <header class="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800/80 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-3">
+                <!-- Brand Logo -->
+                <button onclick="goToLobby()" class="flex items-center gap-3 text-left group">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 via-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
+                        <i data-lucide="boxes" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-lg font-bold text-white tracking-tight leading-none">Career Sandbox VR/AR</h1>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                                6 Careers
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-0.5">ห้องจำลองอาชีพเสมือนจริงและบทเรียนแห่งอนาคต</p>
+                    </div>
+                </button>
+
+                <!-- 2-Mode View Switcher -->
+                <nav class="flex bg-slate-900/90 p-1 rounded-xl border border-slate-800" aria-label="View Switcher">
+                    <button onclick="switchViewMode('student')" id="nav-btn-student" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all">
+                        <i data-lucide="gamepad-2" class="w-4 h-4"></i>
+                        <span>โหมดผู้เรียน <span class="hidden xl:inline">(Student Sandbox)</span></span>
+                    </button>
+                    <button onclick="switchViewMode('counselor')" id="nav-btn-counselor" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                        <span>แดชบอร์ดครูแนะแนว <span class="hidden xl:inline">(Counselor Dashboard)</span></span>
+                    </button>
+                </nav>
+
+                <!-- Student Info Badge & Supabase Connection Status -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="openStudentModal()" id="nav-student-badge" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-xs font-medium text-slate-200 transition-all" title="คลิกเพื่อแก้ไขชื่อและรหัสนักเรียน">
+                        <i data-lucide="user-circle-2" class="w-4 h-4 text-cyan-400"></i>
+                        <span id="nav-student-name" class="max-w-[130px] truncate">ผู้เรียนทดลอง</span>
+                        <i data-lucide="pencil" class="w-3 h-3 text-slate-400"></i>
+                    </button>
+
+                    <button onclick="openSupabaseModal()" id="nav-supabase-btn" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/35 text-amber-300 text-xs font-semibold transition-all" title="ตั้งค่าการเชื่อมต่อฐานข้อมูล Supabase">
+                        <span id="nav-supabase-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span id="nav-supabase-text">Local Demo</span>
+                        <i data-lucide="database" class="w-3.5 h-3.5 opacity-80"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ==================== MAIN CONTENT ==================== -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+
+        <!-- ======================================================= -->
+        <!-- MODE 1: STUDENT SANDBOX                                 -->
+        <!-- ======================================================= -->
+        <div id="mode-student" class="space-y-6">
+
+            <!-- SUB-VIEW 1A: STUDENT LOBBY -->
+            <section id="student-lobby" class="space-y-7 animate-fade-up">
+
+                <!-- Sci-Fi Hero Banner -->
+                <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950/90 to-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl">
+                    <div class="absolute -top-24 -right-24 w-80 h-80 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-24 -left-24 w-80 h-80 bg-violet-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <div class="relative grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                        <div class="lg:col-span-8 space-y-3">
+                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-medium">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                อัปเดตใหม่: เพิ่ม 3 บทเรียนสายอาชีพแห่งอนาคต (AI, Agri-Tech, Cybersecurity)
+                            </div>
+                            <h2 class="text-2xl sm:text-4xl font-bold text-white leading-tight">
+                                สวมบทบาทอาชีพจริงในโลก <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-indigo-400 to-violet-400">3D & WebAR</span>
+                            </h2>
+                            <p class="text-slate-300 text-sm sm:text-base max-w-2xl leading-relaxed">
+                                ทดลองแก้ปัญหาเฉพาะหน้าในสถานการณ์จริง หมุนสำรวจโมเดล 3 มิติ 360 องศา หรือเปิดกล้องซ้อนภาพ AR พร้อมรับบทวิเคราะห์ Career DNA และแนวโน้มตลาดแรงงานในอนาคต
+                            </p>
+                        </div>
+
+                        <!-- Student Progress Card -->
+                        <div class="lg:col-span-4 bg-slate-950/60 backdrop-blur-md rounded-2xl p-5 border border-slate-800 space-y-3.5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center">
+                                        <i data-lucide="dna" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white">ความคืบหน้า Career DNA</h3>
+                                        <p class="text-[11px] text-slate-400">ปลดล็อกบทเรียนเพื่อค้นหาตัวตน</p>
+                                    </div>
+                                </div>
+                                <span id="lobby-progress-count" class="text-sm font-bold text-cyan-300 bg-cyan-950/70 px-2.5 py-1 rounded-lg border border-cyan-500/30">0 / 6</span>
+                            </div>
+
+                            <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div id="lobby-progress-bar" class="h-full bg-gradient-to-r from-cyan-400 via-indigo-500 to-violet-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+
+                            <div id="lobby-progress-summary" class="text-xs text-slate-400">
+                                เลือกบทเรียนด้านล่างเพื่อเริ่มจำลองอาชีพแรกของคุณ
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Student Info Card -->
+                <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-lg">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center justify-center shrink-0">
+                                <i data-lucide="id-card" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold text-white">ข้อมูลผู้เรียนสำหรับบันทึกผลการทดสอบ</h3>
+                                <p class="text-xs text-slate-400">กรอกชื่อและรหัสนักเรียนก่อนเริ่มจำลองอาชีพเพื่อส่งคะแนนเข้าฐานข้อมูล</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 flex-1 lg:max-w-2xl">
+                            <input type="text" id="lobby-student-name" placeholder="ชื่อ-นามสกุลผู้เรียน" class="rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 outline-none">
+                            <input type="text" id="lobby-student-id" placeholder="รหัสนักเรียน / ชั้นเรียน (เช่น 66012 ม.6/1)" class="rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 outline-none">
+                            <button onclick="saveStudentProfileFromLobby()" class="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 text-xs sm:text-sm font-semibold transition-all active:scale-95">
+                                <i data-lucide="save" class="w-4 h-4"></i>
+                                บันทึกข้อมูลผู้เรียน
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Filter Tabs -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-white">เลือกห้องจำลองอาชีพ</h3>
+                        <p class="text-xs sm:text-sm text-slate-400">ทุกบทเรียนมี 3 ด่านจำลองพร้อมโมเดล 3 มิติที่ตอบสนองต่อการตัดสินใจแบบเรียลไทม์</p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
+                        <button onclick="setCategoryFilter('all')" id="filter-btn-all" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all">
+                            ทั้งหมด (6)
+                        </button>
+                        <button onclick="setCategoryFilter('core')" id="filter-btn-core" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all">
+                            อาชีพหลัก (3)
+                        </button>
+                        <button onclick="setCategoryFilter('future')" id="filter-btn-future" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all">
+                            อาชีพแห่งอนาคต ✨ (3)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 6 Career Cards Grid -->
+                <div id="career-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Rendered dynamically -->
+                </div>
+            </section>
+
+            <!-- SUB-VIEW 1B: INTERACTIVE 3D/AR SIMULATION WORKSPACE -->
+            <section id="student-workspace" class="hidden space-y-5 animate-fade-up">
+
+                <!-- Top Workspace Bar -->
+                <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/90 rounded-2xl p-4 border border-slate-800 shadow-lg">
+                    <div class="flex items-center gap-3">
+                        <button onclick="goToLobby()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                            กลับหน้ารวมบทเรียน
+                        </button>
+                        <div class="h-6 w-px bg-slate-800 hidden sm:block"></div>
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h2 id="ws-career-title" class="text-base sm:text-lg font-bold text-white">ชื่ออาชีพ</h2>
+                                <span id="ws-future-badge" class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40">
+                                    อนาคต ✨
+                                </span>
+                            </div>
+                            <p id="ws-career-eng" class="text-xs text-slate-400">English Title</p>
+                        </div>
+                    </div>
+
+                    <!-- Live Model Status Pill -->
+                    <div id="ws-live-status" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                        <span>สถานะโมเดล 3D: รอการตัดสินใจ</span>
+                    </div>
+                </div>
+
+                <!-- 2-Column Interactive Workspace -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+
+                    <!-- LEFT PANEL (6 cols): 3D / AR VIEWPORT -->
+                    <div class="lg:col-span-6 flex flex-col">
+                        <div id="viewport-frame" class="relative flex-1 min-h-[430px] sm:min-h-[520px] rounded-3xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl flex flex-col">
+
+                            <!-- Live Camera Video Feed (WebAR) -->
+                            <video id="webar-video" autoplay playsinline muted class="hidden absolute inset-0 w-full h-full object-cover z-0"></video>
+
+                            <!-- AR HUD Overlay -->
+                            <div id="ar-hud-overlay" class="hidden absolute inset-0 pointer-events-none z-20">
+                                <div class="w-full h-1 bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent ar-scan-beam"></div>
+                                <!-- Corner Brackets -->
+                                <div class="absolute top-14 left-4 w-8 h-8 border-t-2 border-l-2 border-cyan-400 rounded-tl-lg"></div>
+                                <div class="absolute top-14 right-4 w-8 h-8 border-t-2 border-r-2 border-cyan-400 rounded-tr-lg"></div>
+                                <div class="absolute bottom-16 left-4 w-8 h-8 border-b-2 border-l-2 border-cyan-400 rounded-bl-lg"></div>
+                                <div class="absolute bottom-16 right-4 w-8 h-8 border-b-2 border-r-2 border-cyan-400 rounded-br-lg"></div>
+                                <!-- Live Telemetry Pill -->
+                                <div class="absolute top-16 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-slate-950/80 border border-cyan-400/50 text-cyan-300 text-[11px] font-mono tracking-wider flex items-center gap-2 backdrop-blur-md whitespace-nowrap">
+                                    <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                                    <span id="ar-telemetry-text">AR SPATIAL MAPPING • 60 FPS • LOCKED</span>
+                                </div>
+                            </div>
+
+                            <!-- Top Bar Controls inside Viewport -->
+                            <div class="relative z-30 flex flex-wrap items-center justify-between gap-2 p-3.5 bg-gradient-to-b from-slate-950/90 to-transparent">
+                                <span class="px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-md text-slate-200 text-[11px] font-semibold border border-slate-700/80 flex items-center gap-1.5">
+                                    <i data-lucide="box" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                    <span id="ws-model-label">3D Model</span>
+                                </span>
+
+                                <div class="flex items-center gap-1.5">
+                                    <button onclick="toggleSimulatedAR()" id="btn-ar-sim" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700 text-xs font-semibold backdrop-blur-md transition-all">
+                                        <i data-lucide="scan" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                        <span>โหมดจำลอง AR</span>
+                                    </button>
+                                    <button onclick="toggleWebARCamera()" id="btn-webar-cam" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 text-xs font-semibold backdrop-blur-md transition-all">
+                                        <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                                        <span id="btn-webar-text">เปิดกล้องจริง (WebAR)</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Three.js Canvas Mount -->
+                            <div id="three-container" class="relative z-10 flex-1 w-full h-full min-h-[300px]"></div>
+
+                            <!-- Bottom 3D Controls Bar -->
+                            <div class="relative z-30 flex items-center justify-between gap-2 p-3.5 bg-gradient-to-t from-slate-950/95 to-transparent">
+                                <span class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                                    <i data-lucide="move-3d" class="w-3.5 h-3.5 text-indigo-400"></i>
+                                    คลิกลากเพื่อหมุน 360° • ซูมเข้า-ออกได้
+                                </span>
+                                <div class="flex items-center gap-1">
+                                    <button onclick="ThreeEngine.zoomIn()" class="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700 transition-colors" title="ซูมเข้า">
+                                        <i data-lucide="zoom-in" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="ThreeEngine.zoomOut()" class="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700 transition-colors" title="ซูมออก">
+                                        <i data-lucide="zoom-out" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="ThreeEngine.resetView()" class="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700 transition-colors" title="รีเซ็ตมุมมอง">
+                                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT PANEL (6 cols): PROGRESS + KPI + SCENARIO -->
+                    <div class="lg:col-span-6 flex flex-col gap-4">
+
+                        <!-- Progress & 2 Live KPI Meters -->
+                        <div class="bg-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-lg space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span id="ws-stage-label" class="text-xs font-bold text-cyan-300 uppercase tracking-wider">ด่านที่ 1 / 3</span>
+                                <span id="ws-stage-pct" class="text-xs font-mono text-slate-400">33%</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                <div id="ws-stage-bar" class="h-full bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full transition-all duration-500" style="width: 33%"></div>
+                            </div>
+
+                            <!-- 2 Live KPI Meters -->
+                            <div id="ws-kpi-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                                <!-- Rendered dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Scenario Card -->
+                        <div class="flex-1 bg-slate-900/90 rounded-2xl p-5 sm:p-6 border border-slate-800 shadow-lg flex flex-col justify-between gap-5">
+                            <div class="space-y-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                                        <i data-lucide="zap" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <span id="sc-badge" class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">ภารกิจจำลองที่ 1</span>
+                                        <h3 id="sc-title" class="text-lg font-bold text-white leading-snug mt-0.5">หัวข้อภารกิจ</h3>
+                                    </div>
+                                </div>
+
+                                <p id="sc-desc" class="text-sm text-slate-300 leading-relaxed bg-slate-950/70 p-4 rounded-xl border border-slate-800">
+                                    รายละเอียดสถานการณ์...
+                                </p>
+
+                                <!-- 3 Actionable Choices -->
+                                <div id="sc-options" class="space-y-2.5">
+                                    <!-- Rendered dynamically -->
+                                </div>
+                            </div>
+
+                            <!-- Immediate Consequence & Expert Insight Box -->
+                            <div id="expert-insight-box" class="hidden rounded-2xl p-4 sm:p-5 border animate-fade-up space-y-3">
+                                <div class="flex items-start gap-3">
+                                    <div id="insight-icon-wrap" class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
+                                        <i data-lucide="lightbulb" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="flex-1 space-y-1.5">
+                                        <div class="flex flex-wrap items-center justify-between gap-2">
+                                            <h4 class="text-xs font-bold uppercase tracking-wider text-white">คำแนะนำจากผู้เชี่ยวชาญ (Expert Insight)</h4>
+                                            <span id="insight-impact-badge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full"></span>
+                                        </div>
+                                        <p id="insight-consequence" class="text-xs font-semibold text-cyan-300"></p>
+                                        <p id="insight-text" class="text-sm text-slate-200 leading-relaxed"></p>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-end pt-1">
+                                    <button onclick="advanceStage()" id="btn-next-stage" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-sm font-semibold shadow-lg shadow-cyan-500/20 transition-all active:scale-95">
+                                        <span>ด่านถัดไป</span>
+                                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <!-- SUB-VIEW 1C: CAREER FIT & DNA REPORT -->
+            <section id="student-report" class="hidden space-y-6 animate-fade-up max-w-5xl mx-auto">
+                <!-- Rendered dynamically -->
+            </section>
+
+        </div>
+
+        <!-- ======================================================= -->
+        <!-- MODE 2: COUNSELOR DASHBOARD (โหมดครูแนะแนว)              -->
+        <!-- ======================================================= -->
+        <section id="mode-counselor" class="hidden space-y-6 animate-fade-up">
+            <!-- Rendered dynamically -->
+        </section>
+
+    </main>
+
+    <!-- ==================== STUDENT PROFILE EDIT MODAL ==================== -->
+    <div id="student-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="bg-slate-900 rounded-3xl max-w-md w-full border border-slate-700 shadow-2xl overflow-hidden animate-fade-up">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <i data-lucide="user-cog" class="w-5 h-5 text-cyan-400"></i>
+                    <h3 class="font-bold text-base text-white">แก้ไขข้อมูลผู้เรียน</h3>
+                </div>
+                <button onclick="closeStudentModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form onsubmit="saveStudentProfileFromModal(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">ชื่อ-นามสกุลผู้เรียน</label>
+                    <input type="text" id="modal-student-name" required placeholder="เช่น นายธนภัทร วงศ์สุวรรณ" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">รหัสนักเรียน / ชั้นเรียน</label>
+                    <input type="text" id="modal-student-id" required placeholder="เช่น 66012 • ม.6/1" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 outline-none">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeStudentModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">ยกเลิก</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white text-xs font-semibold shadow-md">บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== SUPABASE CONFIGURATION MODAL ==================== -->
+    <div id="supabase-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+        <div class="bg-slate-900 rounded-3xl max-w-xl w-full border border-slate-700 shadow-2xl overflow-hidden animate-fade-up my-auto">
+            <div class="px-6 py-4 bg-slate-950/70 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                        <i data-lucide="database" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">ตั้งค่าฐานข้อมูล Supabase</h3>
+                        <p class="text-[11px] text-slate-400">เชื่อมต่อเพื่อจัดเก็บและดึงผลแบบทดสอบแบบเรียลไทม์</p>
+                    </div>
+                </div>
+                <button onclick="closeSupabaseModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                <!-- Connection Feedback Banner -->
+                <div id="sb-status-banner" class="hidden rounded-xl p-3.5 text-xs font-medium border"></div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Supabase Project URL</label>
+                    <input type="url" id="sb-url-input" placeholder="https://xxxxxxxxxxxx.supabase.co" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm font-mono text-cyan-200 placeholder-slate-600 focus:border-cyan-400 outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Supabase Anon Key (Public API Key)</label>
+                    <input type="password" id="sb-key-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm font-mono text-cyan-200 placeholder-slate-600 focus:border-cyan-400 outline-none">
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-2.5 pt-1">
+                    <button onclick="connectAndTestSupabase()" id="btn-sb-connect" class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 text-xs sm:text-sm font-bold shadow-lg transition-all active:scale-95">
+                        <i data-lucide="plug-zap" class="w-4 h-4"></i>
+                        <span>ทดสอบและเชื่อมต่อ (Connect & Test)</span>
+                    </button>
+                    <button onclick="disconnectSupabase()" class="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold transition-all">
+                        <i data-lucide="unplug" class="w-4 h-4"></i>
+                        <span>ยกเลิกการเชื่อมต่อ (ใช้โหมดจำลอง)</span>
+                    </button>
+                </div>
+
+                <!-- Collapsible SQL Setup Guide -->
+                <div class="border border-slate-800 rounded-2xl bg-slate-950/60 overflow-hidden mt-2">
+                    <button type="button" onclick="toggleSqlAccordion()" class="w-full px-4 py-3 flex items-center justify-between text-xs font-semibold text-cyan-300 hover:bg-slate-800/40 transition-colors">
+                        <span class="flex items-center gap-2">
+                            <i data-lucide="terminal" class="w-4 h-4"></i>
+                            ดูโค้ด SQL สำหรับสร้างตาราง (career_sandbox_results)
+                        </span>
+                        <i data-lucide="chevron-down" id="sql-chevron" class="w-4 h-4 transition-transform"></i>
+                    </button>
+                    <div id="sql-code-panel" class="hidden px-4 pb-4 space-y-2.5 border-t border-slate-800 pt-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] text-slate-400">นำโค้ดนี้ไปรันในเมนู SQL Editor ของ Supabase</span>
+                            <button type="button" onclick="copySqlCode()" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-semibold">
+                                <i data-lucide="copy" class="w-3 h-3"></i> คัดลอก SQL
+                            </button>
+                        </div>
+                        <pre id="supabase-sql-code" class="text-[11px] font-mono text-emerald-300 bg-slate-950 p-3.5 rounded-xl border border-slate-800 overflow-x-auto leading-relaxed">CREATE TABLE IF NOT EXISTS career_sandbox_results (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  student_name TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  career_id TEXT NOT NULL,
+  career_title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  fit_score INTEGER NOT NULL,
+  skill_problem_solving INTEGER NOT NULL,
+  skill_communication INTEGER NOT NULL,
+  skill_technical INTEGER NOT NULL,
+  skill_ethics INTEGER NOT NULL
+);
+
+ALTER TABLE career_sandbox_results ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public insert" ON career_sandbox_results
+  FOR INSERT TO anon WITH CHECK (true);
+
+CREATE POLICY "Allow public select" ON career_sandbox_results
+  FOR SELECT TO anon USING (true);</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TOAST CONTAINER ==================== -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- ==================== APPLICATION SCRIPT ==================== -->
+    <script>
+        // ============================================================
+        // 1. CAREER CATALOG (3 CORE + 3 NEW FUTURE CAREERS)
+        // ============================================================
+        const CAREERS = {
+            // ---------- CORE CAREER 1 ----------
+            doctor: {
+                id: 'doctor',
+                category: 'core',
+                isFuture: false,
+                title: 'แพทย์ห้องฉุกเฉิน',
+                engTitle: 'Emergency Physician',
+                difficulty: 'ระดับสูง',
+                estTime: '5 นาที',
+                icon: 'heart-pulse',
+                accent: 'rose',
+                gradient: 'from-rose-600 via-red-600 to-orange-600',
+                modelLabel: '3D Beating Heart & Bio-Ring',
+                skillsTags: ['คัดกรองวิกฤต', 'ตัดสินใจฉับไว', 'สื่อสารญาติ'],
+                shortDesc: 'รับมือผู้ป่วยฉุกเฉินภายใต้เวลาจำกัด วิเคราะห์สัญญาณชีพผ่าน Bio-Core 3 มิติ และตัดสินใจช่วยชีวิตให้ทันท่วงที',
+                faculties: ['คณะแพทยศาสตร์', 'สาขาปฏิบัติการฉุกเฉินการแพทย์ (Paramedic)', 'คณะพยาบาลศาสตร์'],
+                marketOutlook: 'ความต้องการบุคลากรการแพทย์ฉุกเฉินในไทยและสังคมผู้สูงอายุยังคงเติบโตสูงอย่างต่อเนื่อง (+18% ใน 5 ปีข้างหน้า) โดยเฉพาะแพทย์ที่ทำงานร่วมกับระบบ AI ช่วยวินิจฉัยได้',
+                kpis: [
+                    { key: 'k1', label: 'ความปลอดภัยผู้ป่วย', color: 'bg-rose-500', init: 60 },
+                    { key: 'k2', label: 'ความเชื่อมั่นทีมและญาติ', color: 'bg-cyan-500', init: 65 }
+                ],
+                stages: [
+                    {
+                        title: 'คัดกรองผู้ป่วยวิกฤตพร้อมกัน 2 ราย (Triage)',
+                        desc: 'มีผู้ป่วยเข้าห้องฉุกเฉินพร้อมกัน: ราย A หมดสติ ชีพจรเต้นเร็วผิดปกติ ออกซิเจนตกเหลือ 86% ส่วนราย B แขนหักร้องปวดมากและญาติโวยวายให้ดูด่วน คุณจะตัดสินใจอย่างไร?',
+                        options: [
+                            {
+                                text: 'ช่วยราย A ทันทีตามหลัก ABC (ทางเดินหายใจ/ชีพจร) พร้อมให้พยาบาลสื่อสารอธิบายญาติราย B อย่างนุ่มนวล',
+                                deltas: { k1: +22, k2: +15 },
+                                skills: { problem: 35, system: 30, ethics: 32, innovation: 22 },
+                                state: 'optimal',
+                                badge: 'ตัดสินใจยอดเยี่ยม',
+                                consequence: 'ผลลัพธ์: ออกซิเจนผู้ป่วย A กลับสู่ระดับปลอดภัย และญาติราย B เข้าใจสถานการณ์',
+                                insight: 'ในห้องฉุกเฉิน "อันตรายถึงชีวิตต้องมาก่อนเสียงที่ดังที่สุด" การจัดลำดับตามหลัก Triage ร่วมกับการสื่อสารเป็นทีมคือหัวใจของแพทย์ ER'
+                            },
+                            {
+                                text: 'รีบไปดูราย B ก่อนเพื่อระงับความวุ่นวาย 3 นาที แล้วค่อยกลับมาช่วยราย A',
+                                deltas: { k1: -25, k2: +5 },
+                                skills: { problem: 12, system: 10, ethics: 12, innovation: 10 },
+                                state: 'critical',
+                                badge: 'เสี่ยงอันตรายสูง',
+                                consequence: 'ผลลัพธ์: ผู้ป่วย A ขาดออกซิเจนนานเกินไปจนชีพจรเริ่มวิกฤต!',
+                                insight: 'ผู้ป่วยที่ออกซิเจนต่ำกว่า 88% ทุกวินาทีมีผลต่อสมอง แพทย์ฉุกเฉินต้องไม่ปล่อยให้แรงกดดันรอบข้างมาเบี่ยงเบนลำดับความสำคัญทางการแพทย์'
+                            },
+                            {
+                                text: 'สั่งตรวจเลือดและเอกซเรย์ทั้งสองคนพร้อมกัน แล้วรอผลก่อนเริ่มรักษา',
+                                deltas: { k1: -12, k2: -8 },
+                                skills: { problem: 15, system: 18, ethics: 18, innovation: 14 },
+                                state: 'warning',
+                                badge: 'ล่าช้าเกินไป',
+                                consequence: 'ผลลัพธ์: เสียเวลาทองในการเปิดทางเดินหายใจ อาการราย A ทรุดลงเล็กน้อย',
+                                insight: 'ในภาวะวิกฤตต้องประคับประคองสัญญาณชีพทันทีควบคู่กับการตรวจวินิจฉัย ไม่ควรรอผลแล็บก่อนช่วยชีวิตเบื้องต้น'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'ภาวะแพ้ยาเฉียบพลัน (Anaphylaxis Shock)',
+                        desc: 'ระหว่างให้ยา ชีพจรผู้ป่วย A พุ่งขึ้น 148 ครั้ง/นาที ความดันตกฮวบและมีผื่นแดงขึ้นทั่วตัว สงสัยภาวะช็อกจากการแพ้ยา คุณจะสั่งการอย่างไร?',
+                        options: [
+                            {
+                                text: 'หยุดยาที่สงสัยทันที ฉีด Epinephrine เข้ากล้ามเนื้อ และให้สารน้ำกู้ความดันโลหิต',
+                                deltas: { k1: +20, k2: +15 },
+                                skills: { problem: 35, system: 34, ethics: 30, innovation: 25 },
+                                state: 'optimal',
+                                badge: 'แม่นยำตามมาตรฐาน',
+                                consequence: 'ผลลัพธ์: ความดันโลหิตและจังหวะการเต้นหัวใจ 3 มิติ กลับมาคงที่อย่างรวดเร็ว',
+                                insight: 'Epinephrine คือยาช่วยชีวิตอันดับหนึ่งของภาวะ Anaphylaxis การหยุดต้นเหตุและให้ยาทันทีช่วยลดอัตราการเสียชีวิตได้ชัดเจน'
+                            },
+                            {
+                                text: 'ให้ยาแก้แพ้ชนิดกินแล้วรอดูอาการ 15 นาทีเพื่อความแน่ใจ',
+                                deltas: { k1: -22, k2: -12 },
+                                skills: { problem: 10, system: 12, ethics: 12, innovation: 10 },
+                                state: 'critical',
+                                badge: 'ไม่ทันต่อภาวะช็อก',
+                                consequence: 'ผลลัพธ์: หลอดลมผู้ป่วยเริ่มบวมตีบ ความดันตกลงสู่ระดับอันตราย',
+                                insight: 'ยาแก้แพ้ชนิดกินออกฤทธิ์ช้าเกินไปและไม่สามารถกู้ความดันตกเฉียบพลันได้ ต้องใช้ยาฉีดหลักทันที'
+                            },
+                            {
+                                text: 'โทรปรึกษาแพทย์เฉพาะทางก่อนโดยยังไม่หยุดยาเดิมที่ให้ค้างอยู่',
+                                deltas: { k1: -12, k2: -5 },
+                                skills: { problem: 16, system: 16, ethics: 18, innovation: 15 },
+                                state: 'warning',
+                                badge: 'ควบคุมต้นเหตุช้า',
+                                consequence: 'ผลลัพธ์: สารก่อแพ้ยังคงเข้าสู่ร่างกายต่อเนื่อง อาการแย่ลงระหว่างรอสาย',
+                                insight: 'แพทย์ ER ต้องกล้าหยุดปัจจัยเสี่ยงและคุมอาการเบื้องต้นได้ทันที ไม่ควรรอคำสั่งจากผู้อื่นในนาทีวิกฤต'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'การสื่อสารกับญาติและส่งต่อทีม ICU',
+                        desc: 'ผู้ป่วยพ้นขีดอันตรายเบื้องต้นแล้วแต่ต้องเฝ้าระวังใน ICU ญาติตื่นตระหนกและถามว่า "เขาจะหาย 100% ใช่ไหมหมอ?" คุณจะทำอย่างไร?',
+                        options: [
+                            {
+                                text: 'อธิบายอาการตามจริงด้วยภาษาเข้าใจง่าย ให้กำลังใจอย่างมีเมตตา และส่งต่อข้อมูลทีม ICU อย่างเป็นระบบ (ISBAR)',
+                                deltas: { k1: +15, k2: +20 },
+                                skills: { problem: 28, system: 32, ethics: 36, innovation: 26 },
+                                state: 'optimal',
+                                badge: 'มืออาชีพและมีเมตตา',
+                                consequence: 'ผลลัพธ์: ญาติคลายกังวลและให้ความร่วมมือ ทีม ICU รับช่วงต่อได้อย่างไร้รอยต่อ',
+                                insight: 'การสื่อสารที่ซื่อสัตย์แต่เปี่ยมด้วยความเข้าใจ (Empathy) และการส่งต่อข้อมูลอย่างเป็นระบบช่วยลดความผิดพลาดทางการแพทย์ได้มาก'
+                            },
+                            {
+                                text: 'รับปากว่า "หายแน่นอน 100%" เพื่อให้ญาติหยุดร้องไห้',
+                                deltas: { k1: +2, k2: -15 },
+                                skills: { problem: 15, system: 14, ethics: 10, innovation: 12 },
+                                state: 'warning',
+                                badge: 'ผิดหลักจริยธรรมการสื่อสาร',
+                                consequence: 'ผลลัพธ์: สร้างความคาดหวังเกินจริง เสี่ยงเกิดข้อพิพาทหากมีภาวะแทรกซ้อน',
+                                insight: 'แพทย์ไม่ควรรับประกัน 100% ในเคส ICU ควรสื่อสารความจริงอย่างนุ่มนวลและโปร่งใส'
+                            },
+                            {
+                                text: 'อธิบายด้วยศัพท์แพทย์สั้นๆ แล้วรีบเดินหนีไปดูเคสอื่น',
+                                deltas: { k1: +5, k2: -20 },
+                                skills: { problem: 18, system: 18, ethics: 10, innovation: 10 },
+                                state: 'critical',
+                                badge: 'ขาดความเข้าอกเข้าใจ',
+                                consequence: 'ผลลัพธ์: ญาติสับสนและไม่เชื่อมั่นในโรงพยาบาล',
+                                insight: 'แม้ทักษะการรักษาจะดี แต่การละเลยความรู้สึกของญาติทำให้ความไว้วางใจในการรักษาลดลงอย่างมาก'
+                            }
+                        ]
+                    }
+                ]
+            },
+
+            // ---------- CORE CAREER 2 ----------
+            engineer: {
+                id: 'engineer',
+                category: 'core',
+                isFuture: false,
+                title: 'วิศวกรโครงสร้าง',
+                engTitle: 'Structural Engineer',
+                difficulty: 'ระดับกลาง',
+                estTime: '5 นาที',
+                icon: 'hard-hat',
+                accent: 'amber',
+                gradient: 'from-amber-500 via-orange-600 to-yellow-600',
+                modelLabel: '3D Truss Bridge & Load Beams',
+                skillsTags: ['วิเคราะห์แรง', 'ความปลอดภัย', 'คุมงบประมาณ'],
+                shortDesc: 'ตรวจสอบรอยร้าวสะพาน คำนวณจุดรับน้ำหนักบนโครงสร้าง 3 มิติ และเลือกเทคโนโลยีเสริมกำลังให้ปลอดภัยและคุ้มค่า',
+                faculties: ['คณะวิศวกรรมศาสตร์ (สาขาวิศวกรรมโยธา)', 'วิศวกรรมโครงสร้างและบริหารก่อสร้าง', 'เทคโนโลยีสถาปัตยกรรม'],
+                marketOutlook: 'โครงการโครงสร้างพื้นฐาน เมืองอัจฉริยะ (Smart City) และอาคารสีเขียวทั่วเอเชียทำให้วิศวกรโครงสร้างที่ใช้ BIM และวัสดุยุคใหม่เป็นที่ต้องการสูงมาก',
+                kpis: [
+                    { key: 'k1', label: 'ความปลอดภัยโครงสร้าง', color: 'bg-emerald-500', init: 55 },
+                    { key: 'k2', label: 'ความคุ้มค่าและเวลา', color: 'bg-amber-500', init: 70 }
+                ],
+                stages: [
+                    {
+                        title: 'ตรวจพบรอยร้าวเฉียงที่คานสะพานหลัก',
+                        desc: 'เซ็นเซอร์พบรอยร้าวแบบแรงเฉือน (Shear Crack) บริเวณจุดต่อคานสะพานข้ามแยก ผู้รับเหมาเสนอให้ฉาบปูนปิดทับเพื่อเปิดถนนพรุ่งนี้ คุณจะตัดสินใจอย่างไร?',
+                        options: [
+                            {
+                                text: 'สั่งปิดจราจรชั่วคราวทันที และใช้เครื่องมือตรวจสอบแบบไม่ทำลาย (NDT) เพื่อประเมินกำลังเหล็กเสริมภายใน',
+                                deltas: { k1: +25, k2: -5 },
+                                skills: { problem: 32, system: 36, ethics: 36, innovation: 25 },
+                                state: 'optimal',
+                                badge: 'ยึดมั่นจรรยาบรรณ',
+                                consequence: 'ผลลัพธ์: ป้องกันอุบัติเหตุร้ายแรงและได้ข้อมูลโครงสร้างจริงสำหรับวางแผนซ่อม',
+                                insight: 'รอยร้าวแรงเฉือนอาจทำให้สะพานวิบัติฉับพลัน ความปลอดภัยสาธารณะต้องอยู่เหนือกำหนดเวลาเสมอ'
+                            },
+                            {
+                                text: 'ยอมให้ฉาบปูนปิดทับแล้วเปิดให้รถเล็กวิ่งไปก่อนเพื่อไม่ให้รถติด',
+                                deltas: { k1: -32, k2: +12 },
+                                skills: { problem: 10, system: 8, ethics: 6, innovation: 8 },
+                                state: 'critical',
+                                badge: 'อันตรายร้ายแรง',
+                                consequence: 'ผลลัพธ์: โครงสร้างสะพานเกิดแรงสั่นสะเทือนรุนแรง เสี่ยงถล่ม!',
+                                insight: 'การฉาบปูนไม่ได้เพิ่มกำลังรับแรงเลย เป็นการละเมิดจรรยาบรรณวิศวกรอย่างร้ายแรง'
+                            },
+                            {
+                                text: 'สั่งทุบสะพานสร้างใหม่ทั้งหมดทันทีโดยไม่ตรวจประเมินก่อน',
+                                deltas: { k1: +15, k2: -30 },
+                                skills: { problem: 16, system: 14, ethics: 20, innovation: 12 },
+                                state: 'warning',
+                                badge: 'สิ้นเปลืองงบประมาณ',
+                                consequence: 'ผลลัพธ์: ปลอดภัยแต่ใช้งบประมาณสูงเกินจำเป็นและปิดถนนนานนับปี',
+                                insight: 'วิศวกรที่ดีต้องตรวจสอบข้อมูลจริงเพื่อหาแนวทางซ่อมเสริมกำลังที่คุ้มค่าก่อนตัดสินใจรื้อถอน'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'เลือกเทคโนโลยีเสริมกำลังภายใต้ข้อจำกัดเวลา',
+                        desc: 'ผลตรวจพบว่าเหล็กภายในยังดี 80% แต่ต้องเพิ่มกำลังรับแรงเฉือนให้เสร็จภายใน 5 วันภายใต้บประมาณจำกัด คุณจะเลือกวิธีใด?',
+                        options: [
+                            {
+                                text: 'เสริมกำลังด้วยแผ่นคาร์บอนไฟเบอร์ (CFRP Wrapping) เฉพาะจุดวิกฤต ติดตั้งไวและน้ำหนักเบา',
+                                deltas: { k1: +22, k2: +20 },
+                                skills: { problem: 32, system: 34, ethics: 30, innovation: 36 },
+                                state: 'optimal',
+                                badge: 'นวัตกรรมและคุ้มค่า',
+                                consequence: 'ผลลัพธ์: จุดรับแรงบนโมเดล 3 มิติเปลี่ยนเป็นสีเขียวและติดตั้งเสร็จทัน 5 วัน',
+                                insight: 'วัสดุ CFRP มีความแข็งแรงสูงกว่าเหล็กหลายเท่า ไม่เพิ่มน้ำหนักบรรทุกให้เสาตอม่อ และลดเวลาปิดจราจรได้อย่างดีเยี่ยม'
+                            },
+                            {
+                                text: 'เทคอนกรีตหุ้มคานใหม่ทั้งสะพาน ใช้เวลาบ่ม 14 วันและเพิ่มน้ำหนักสะพาน',
+                                deltas: { k1: +8, k2: -18 },
+                                skills: { problem: 18, system: 20, ethics: 22, innovation: 14 },
+                                state: 'warning',
+                                badge: 'ล่าช้าและเพิ่มโหลด',
+                                consequence: 'ผลลัพธ์: ปิดถนนเกินกำหนดและเพิ่มน้ำหนัก Dead Load ให้ฐานรากเดิม',
+                                insight: 'การเพิ่มความหนาคอนกรีตอาจสร้างภาระน้ำหนักใหม่ให้เสาตอม่อเดิมและไม่เหมาะกับงานเร่งด่วน'
+                            },
+                            {
+                                text: 'ใช้แผ่นเหล็กราคาถูกยึดน็อตชั่วคราวโดยไม่คำนวณแรงสั่นสะเทือน',
+                                deltas: { k1: -22, k2: +10 },
+                                skills: { problem: 12, system: 10, ethics: 10, innovation: 10 },
+                                state: 'critical',
+                                badge: 'ไม่ผ่านมาตรฐาน',
+                                consequence: 'ผลลัพธ์: น็อตคลายตัวจากแรงสั่นสะเทือนของรถบรรทุก เกิดรอยร้าวซ้ำ',
+                                insight: 'สะพานรับแรงกระทำซ้ำๆ (Fatigue) ตลอดเวลา ห้ามลดค่าความปลอดภัย (Factor of Safety) เพื่อประหยัดงบเด็ดขาด'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'ทดสอบรับน้ำหนัก (Load Test) ก่อนเปิดใช้งาน',
+                        desc: 'ผู้บริหารโครงการเร่งให้เปิดถนนให้ทันข่าวภาคค่ำโดยขอข้ามขั้นตอนการทดสอบรับน้ำหนักจริง คุณจะจัดการอย่างไร?',
+                        options: [
+                            {
+                                text: 'ยืนยันทำ Load Test ด้วยรถบรรทุกมาตรฐานและเซ็นเซอร์วัดการแอ่นตัว พร้อมชี้แจงข้อมูลเชิงตัวเลขให้ผู้บริหารมั่นใจ',
+                                deltas: { k1: +20, k2: +12 },
+                                skills: { problem: 30, system: 34, ethics: 36, innovation: 28 },
+                                state: 'optimal',
+                                badge: 'มาตรฐานระดับสากล',
+                                consequence: 'ผลลัพธ์: ผ่านการทดสอบ 100% และเปิดถนนได้อย่างมั่นใจและปลอดภัย',
+                                insight: 'การยืนหยัดในมาตรฐานความปลอดภัยพร้อมสื่อสารด้วยหลักฐานเชิงวิศวกรรมช่วยสร้างความน่าเชื่อถือในระยะยาว'
+                            },
+                            {
+                                text: 'ยอมเปิดถนนให้ทันข่าว แล้วค่อยแอบติดเซ็นเซอร์ดูตอนกลางคืน',
+                                deltas: { k1: -25, k2: +8 },
+                                skills: { problem: 10, system: 12, ethics: 8, innovation: 10 },
+                                state: 'critical',
+                                badge: 'เสี่ยงต่อชีวิตประชาชน',
+                                consequence: 'ผลลัพธ์: ใช้ประชาชนเป็นผู้ทดสอบสะพาน ซึ่งผิดมาตรฐานความปลอดภัยอย่างร้ายแรง',
+                                insight: 'ห้ามนำชีวิตผู้ใช้ถนนมาเสี่ยงเพื่อความรวดเร็วในการประชาสัมพันธ์โดยเด็ดขาด'
+                            },
+                            {
+                                text: 'ปฏิเสธแบบแข็งกร้าวไม่คุยเหตุผล ทำให้เกิดความขัดแย้งในโครงการ',
+                                deltas: { k1: +15, k2: -12 },
+                                skills: { problem: 20, system: 22, ethics: 26, innovation: 15 },
+                                state: 'warning',
+                                badge: 'ขาดทักษะเจรจา',
+                                consequence: 'ผลลัพธ์: ได้ทดสอบความปลอดภัย แต่การทำงานร่วมกับฝ่ายบริหารติดขัด',
+                                insight: 'วิศวกรยุคใหม่ต้องเก่งทั้งการคำนวณและการสื่อสารโน้มน้าวผู้มีส่วนได้ส่วนเสียให้เห็นภาพเดียวกัน'
+                            }
+                        ]
+                    }
+                ]
+            },
+
+            // ---------- CORE CAREER 3 ----------
+            ux: {
+                id: 'ux',
+                category: 'core',
+                isFuture: false,
+                title: 'นักออกแบบ UX/UI',
+                engTitle: 'UX/UI Designer',
+                difficulty: 'ระดับเริ่มต้น',
+                estTime: '4 นาที',
+                icon: 'figma',
+                accent: 'violet',
+                gradient: 'from-violet-600 via-purple-600 to-indigo-600',
+                modelLabel: '3D Holographic UI Layers',
+                skillsTags: ['Design Thinking', 'User Research', 'Usability'],
+                shortDesc: 'แก้ปัญหาหน้าแอปที่ผู้ใช้กดออกกลางคัน จัดระเบียบเลเยอร์ UI 3 มิติ และสร้างสมดุลระหว่างประสบการณ์ผู้ใช้กับเป้าหมายธุรกิจ',
+                faculties: ['คณะสถาปัตยกรรมและการออกแบบ', 'เทคโนโลยีสารสนเทศ (IT / HCI)', 'นิเทศศาสตร์และดิจิทัลมีเดีย'],
+                marketOutlook: 'ทุกธุรกิจกำลังเปลี่ยนสู่ดิจิทัลและ AI Interface ทำให้นักออกแบบผลิตภัณฑ์ (Product / UX Designer) ที่เข้าใจข้อมูลผู้ใช้และธุรกิจมีรายได้และอัตราการเติบโตสูงมาก',
+                kpis: [
+                    { key: 'k1', label: 'ความพึงพอใจผู้ใช้', color: 'bg-violet-500', init: 52 },
+                    { key: 'k2', label: 'เป้าหมายธุรกิจ', color: 'bg-emerald-500', init: 64 }
+                ],
+                stages: [
+                    {
+                        title: 'ผู้ใช้ 68% กดออกจากหน้าชำระเงินกลางคัน',
+                        desc: 'แอปเรียนออนไลน์มีอัตราการทิ้งตะกร้าสูงถึง 68% ฝ่ายการตลาดเดาว่า "ปุ่มสีไม่เด่นพอ" และอยากให้เปลี่ยนเป็นสีนีออนกระพริบ คุณจะเริ่มแก้ปัญหาอย่างไร?',
+                        options: [
+                            {
+                                text: 'วิเคราะห์ข้อมูล Funnel & Heatmap พร้อมสัมภาษณ์ผู้ใช้จริง 5-8 คนเพื่อหา Pain Points ที่แท้จริงก่อนออกแบบ',
+                                deltas: { k1: +22, k2: +16 },
+                                skills: { problem: 30, system: 34, ethics: 30, innovation: 34 },
+                                state: 'optimal',
+                                badge: 'ขับเคลื่อนด้วยข้อมูลผู้ใช้',
+                                consequence: 'ผลลัพธ์: ค้นพบสาเหตุจริงว่าฟอร์มกรอกยาวเกินไปและมีค่าธรรมเนียมซ่อนอยู่',
+                                insight: 'Design Thinking เริ่มจากความเข้าใจผู้ใช้ (Empathize) ไม่ใช่การเดาจากความชอบส่วนตัวหรือเปลี่ยนแค่สีปุ่ม'
+                            },
+                            {
+                                text: 'ทำตามฝ่ายการตลาด เปลี่ยนปุ่มเป็นสีนีออนกระพริบขนาดยักษ์ทันที',
+                                deltas: { k1: -20, k2: -12 },
+                                skills: { problem: 12, system: 10, ethics: 14, innovation: 12 },
+                                state: 'critical',
+                                badge: 'ลดความน่าเชื่อถือ',
+                                consequence: 'ผลลัพธ์: หน้าจ่ายเงินดูเหมือนเว็บหลอกลวง ผู้ใช้ยิ่งกดปิดเร็วกว่าเดิม',
+                                insight: 'ปุ่มกระพริบในหน้าธุรกรรมทำลายความไว้วางใจ หากไม่แก้ที่ต้นเหตุยอดขายจะยิ่งตก'
+                            },
+                            {
+                                text: 'ออกแบบใหม่ทั้งแอปตั้งแต่หน้าแรกตามสไตล์ที่ตัวเองชอบโดยไม่ถามผู้ใช้',
+                                deltas: { k1: -5, k2: -18 },
+                                skills: { problem: 15, system: 14, ethics: 15, innovation: 18 },
+                                state: 'warning',
+                                badge: 'สิ้นเปลืองเวลาทีมพัฒนา',
+                                consequence: 'ผลลัพธ์: ใช้เวลาพัฒนานานเกินไปและยังไม่แก้จุดติดขัดหน้าจ่ายเงิน',
+                                insight: 'การแก้ปัญหา UX ที่ดีควรโฟกัสจุดที่สร้างผลกระทบสูงสุดก่อน (High-Impact Iteration)'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'ปรับโครงสร้างหน้าจอที่ซับซ้อนเกินไป',
+                        desc: 'ผลวิจัยพบว่าหน้าจ่ายเงินมีช่องกรอกถึง 14 ช่อง บังคับสมัครสมาชิก และมีป๊อปอัปบังปุ่มจ่ายเงิน คุณจะปรับ UI อย่างไร?',
+                        options: [
+                            {
+                                text: 'ลดเหลือ 3 ช่องสำคัญ เปิดโหมดจ่ายแบบ Guest ได้ และจัดลำดับความสำคัญปุ่ม CTA ให้ชัดเจนสะอาดตา',
+                                deltas: { k1: +25, k2: +22 },
+                                skills: { problem: 34, system: 34, ethics: 32, innovation: 34 },
+                                state: 'optimal',
+                                badge: 'ลดแรงเสียดทานยอดเยี่ยม',
+                                consequence: 'ผลลัพธ์: เลเยอร์ UI 3 มิติจัดเรียงเป็นระเบียบ อัตราการจ่ายเงินสำเร็จพุ่งขึ้น 42%',
+                                insight: 'การลดภาระการคิด (Cognitive Load) และการตัดขั้นตอนที่ไม่จำเป็นคือหัวใจของการเพิ่ม Conversion Rate'
+                            },
+                            {
+                                text: 'คงช่องกรอก 14 ช่องเดิมแต่ย่อตัวอักษรให้เล็กจิ๋วเพื่อให้อยู่ในหน้าจอเดียว',
+                                deltas: { k1: -22, k2: -10 },
+                                skills: { problem: 10, system: 12, ethics: 10, innovation: 10 },
+                                state: 'critical',
+                                badge: 'ใช้งานไม่ได้บนมือถือ',
+                                consequence: 'ผลลัพธ์: ผู้ใช้อ่านไม่ออกและกดพลาดตลอด ผิดหลัก Accessibility',
+                                insight: 'ขนาดตัวอักษรและพื้นที่กด (Touch Target) บนมือถือต้องอ่านง่ายและกดสะดวกเสมอ'
+                            },
+                            {
+                                text: 'แบ่ง 14 ช่องเดิมออกเป็น 7 หน้าย่อยโดยไม่ตัดคำถามที่ไม่จำเป็นออก',
+                                deltas: { k1: +2, k2: -6 },
+                                skills: { problem: 18, system: 18, ethics: 18, innovation: 16 },
+                                state: 'warning',
+                                badge: 'ยังยุ่งยากเกินไป',
+                                consequence: 'ผลลัพธ์: หน้าจอดูโล่งขึ้นแต่ผู้ใช้ยังคงเหนื่อยที่ต้องกดถัดไปถึง 7 รอบ',
+                                insight: 'ควรตั้งคำถามก่อนว่า "ข้อมูลไหนจำเป็นจริงๆ" มากกว่าการซ่อนความยุ่งยากไว้หลายหน้า'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'เจรจารับมือคำขอเพิ่มป๊อปอัปโฆษณาก่อนเปิดตัว',
+                        desc: 'ก่อนเปิดตัว 1 วัน ฝ่ายธุรกิจขอเพิ่มป๊อปอัปโฆษณาเต็มจอ 2 ชั้นในหน้าชำระเงินเพื่อขายแพ็กเกจเสริม คุณจะรับมืออย่างไร?',
+                        options: [
+                            {
+                                text: 'เสนอทางออกแบบไม่รบกวนผู้ใช้ (กล่องติ๊กเลือกเสริมขนาดกะทัดรัดก่อนกดจ่าย) พร้อมขอทำ A/B Testing วัดผลจริง',
+                                deltas: { k1: +16, k2: +18 },
+                                skills: { problem: 32, system: 34, ethics: 34, innovation: 36 },
+                                state: 'optimal',
+                                badge: 'Win-Win ทั้งผู้ใช้และธุรกิจ',
+                                consequence: 'ผลลัพธ์: ยอดขายแพ็กเกจเสริมเพิ่มขึ้นโดยไม่ทำให้ผู้ใช้หงุดหงิด',
+                                insight: 'Senior Product Designer ต้องหาจุดสมดุลระหว่าง UX กับเป้าหมายธุรกิจ และใช้ A/B Testing ตัดสินด้วยข้อมูลจริง'
+                            },
+                            {
+                                text: 'ใส่ป๊อปอัป 2 ชั้นตามคำขอทันทีเพื่อให้จบงานไวๆ',
+                                deltas: { k1: -24, k2: +4 },
+                                skills: { problem: 12, system: 12, ethics: 12, innovation: 10 },
+                                state: 'critical',
+                                badge: 'ทำลายประสบการณ์ผู้ใช้',
+                                consequence: 'ผลลัพธ์: ผู้ใช้รำคาญและปิดแอป ส่งผลให้ยอดขายหลักตกลงด้วย',
+                                insight: 'Dark Patterns หรือโฆษณาที่ยัดเยียดเกินไปจะทำลายความภักดีของลูกค้าในระยะยาว'
+                            },
+                            {
+                                text: 'ปฏิเสธฝ่ายธุรกิจทันทีโดยไม่ช่วยคิดทางออกอื่น',
+                                deltas: { k1: +10, k2: -16 },
+                                skills: { problem: 18, system: 18, ethics: 22, innovation: 14 },
+                                state: 'warning',
+                                badge: 'ขาดมุมมองธุรกิจ',
+                                consequence: 'ผลลัพธ์: ดีไซน์สวยแต่ทีมธุรกิจไม่ได้ยอดขายตามเป้า',
+                                insight: 'นักออกแบบที่ดีควรเป็นผู้ช่วยแก้ปัญหาเชิงธุรกิจ (Business Partner) ไม่ใช่ผู้ขัดขวาง'
+                            }
+                        ]
+                    }
+                ]
+            },
+
+            // ---------- NEW FUTURE CAREER 4 ----------
+            ai_ethics: {
+                id: 'ai_ethics',
+                category: 'future',
+                isFuture: true,
+                title: 'วิศวกร AI และจริยธรรมข้อมูล',
+                engTitle: 'AI & Data Ethics Engineer',
+                difficulty: 'ระดับสูง',
+                estTime: '6 นาที',
+                icon: 'brain-circuit',
+                accent: 'cyan',
+                gradient: 'from-cyan-500 via-blue-600 to-indigo-700',
+                modelLabel: '3D Neural Network Core',
+                skillsTags: ['AI Safety', 'ลดอคติข้อมูล', 'PDPA/Privacy'],
+                shortDesc: 'ตรวจสอบอคติในชุดข้อมูล AI คัดกรองงาน หยุดอาการ AI หลอนข้อมูลการแพทย์ และออกแบบระบบอัจฉริยะที่เคารพความเป็นส่วนตัว',
+                faculties: ['วิศวกรรมปัญญาประดิษฐ์ (AI Engineering)', 'วิทยาการข้อมูล (Data Science)', 'นิติศาสตร์เทคโนโลยีและธรรมาภิบาล AI'],
+                marketOutlook: 'หนึ่งในสายอาชีพที่เติบโตเร็วที่สุดในโลก (+45% ภายในปี 2030) ทุกองค์กรที่ใช้ Generative AI จำเป็นต้องมีผู้เชี่ยวชาญด้าน AI Governance, Safety และจริยธรรมข้อมูล',
+                kpis: [
+                    { key: 'k1', label: 'ความยุติธรรมและความแม่นยำ AI', color: 'bg-cyan-400', init: 55 },
+                    { key: 'k2', label: 'ความเชื่อมั่นผู้ใช้และกฎหมาย', color: 'bg-indigo-400', init: 60 }
+                ],
+                stages: [
+                    {
+                        title: 'ตรวจพบอคติทางเพศและอายุในระบบ AI คัดกรองใบสมัครงาน',
+                        desc: 'ก่อนเปิดตัวระบบ AI คัดกรองเรซูเม่ให้บริษัทขนาดใหญ่ คุณพบว่าโมเดลให้คะแนนผู้สมัครหญิงและผู้สมัครอายุเกิน 40 ปีต่ำกว่าปกติ 30% เนื่องจากข้อมูลประวัติในอดีต 10 ปีมีอคติ คุณจะแก้ไขอย่างไร?',
+                        options: [
+                            {
+                                text: 'ระงับการเปิดตัวชั่วคราว ทำ Data Debiasing ลบตัวแปรที่ชี้นำเพศ/อายุ พร้อมเพิ่มระบบ Human-in-the-Loop ให้มนุษย์ตรวจสอบร่วมด้วย',
+                                deltas: { k1: +25, k2: +22 },
+                                skills: { problem: 34, system: 36, ethics: 38, innovation: 32 },
+                                state: 'optimal',
+                                badge: 'AI ปลอดภัยและเป็นธรรม',
+                                consequence: 'ผลลัพธ์: Neural Core 3 มิติปรับสมดุลสมบูรณ์ ลดอคติลงเหลือ <2% และผ่านมาตรฐานธรรมาภิบาล AI',
+                                insight: 'กฎเหล็กของ AI คือ "Garbage In, Bias Out" การปรับสมดุลชุดข้อมูลและมีมนุษย์ร่วมตัดสินใจ (Human-in-the-Loop) คือมาตรฐานสำคัญของ Responsible AI'
+                            },
+                            {
+                                text: 'ปล่อยใช้งานไปก่อนเพราะโมเดลมีความแม่นยำตามข้อมูลเก่าสูงถึง 91% แล้วค่อยแก้ทีหลัง',
+                                deltas: { k1: -28, k2: -25 },
+                                skills: { problem: 10, system: 10, ethics: 6, innovation: 10 },
+                                state: 'critical',
+                                badge: 'ละเมิดสิทธิและเสี่ยงถูกฟ้อง',
+                                consequence: 'ผลลัพธ์: โมเดลคัดคนเก่งออกอย่างไม่เป็นธรรมจนกลายเป็นข่าวฉาวและถูกฟ้องร้องด้านการเลือกปฏิบัติ',
+                                insight: 'ความแม่นยำบนข้อมูลที่มีอคติไม่ใช่ความถูกต้อง องค์กรอาจเสียหายทั้งชื่อเสียงและกฎหมายหากปล่อย AI ที่มีอคติออกใช้งาน'
+                            },
+                            {
+                                text: 'ลบเฉพาะคอลัมน์ "เพศ" ออกจากข้อมูลแล้วปล่อยใช้งานเลยโดยไม่ทดสอบซ้ำ',
+                                deltas: { k1: -10, k2: -8 },
+                                skills: { problem: 18, system: 16, ethics: 18, innovation: 15 },
+                                state: 'warning',
+                                badge: 'ยังมีอคติแฝง (Proxy Bias)',
+                                consequence: 'ผลลัพธ์: AI ยังคงเดาเพศและอายุได้จากชื่อโรงเรียน ชื่อชมรม หรือปีที่จบการศึกษา',
+                                insight: 'การลบคอลัมน์ตรงๆ ไม่พอในงาน AI Ethics ต้องตรวจสอบ Proxy Variables และทดสอบ Fairness Metrics ซ้ำทุกครั้ง'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'หยุดอาการ AI หลอนข้อมูล (Hallucination) ในแชทบอทการแพทย์',
+                        desc: 'ระหว่างทดสอบแชทบอท AI ตอบคำถามสุขภาพก่อนเปิดตัว พบว่าเมื่อเจอคำถามโรคหายาก AI มักแต่งชื่อยาและปริมาณการใช้ขึ้นมาเองอย่างมั่นใจ (Hallucination) คุณจะแก้ปัญหานี้อย่างไร?',
+                        options: [
+                            {
+                                text: 'ติดตั้งระบบ RAG เชื่อมฐานข้อมูลการแพทย์ที่รับรองแล้ว ตั้งค่า Guardrails ให้ตอบ "ไม่ทราบ/แนะนำพบแพทย์" เมื่อความมั่นใจต่ำ และแสดงแหล่งอ้างอิงทุกครั้ง',
+                                deltas: { k1: +24, k2: +20 },
+                                skills: { problem: 35, system: 36, ethics: 35, innovation: 36 },
+                                state: 'optimal',
+                                badge: 'สถาปัตยกรรม AI ปลอดภัยสูง',
+                                consequence: 'ผลลัพธ์: อัตราการหลอนข้อมูลลดลง 98% ผู้ใช้และแพทย์เชื่อมั่นในคำตอบที่มีแหล่งอ้างอิง',
+                                insight: 'ในงานที่มีความเสี่ยงสูงอย่างการแพทย์ ระบบ RAG + Guardrails และการยอมรับว่า "ไม่รู้" คือหัวใจสำคัญที่ป้องกันอันตรายต่อชีวิตผู้ใช้'
+                            },
+                            {
+                                text: 'ใส่ข้อความตัวเล็กๆ ไว้ท้ายแชทว่า "AI อาจผิดพลาดได้" แล้วเปิดให้ประชาชนใช้เลย',
+                                deltas: { k1: -25, k2: -22 },
+                                skills: { problem: 10, system: 12, ethics: 8, innovation: 10 },
+                                state: 'critical',
+                                badge: 'ปัดความรับผิดชอบ',
+                                consequence: 'ผลลัพธ์: ผู้ป่วยหลงเชื่อคำแนะนำยาปลอมจนเกิดอันตราย องค์กรถูกสั่งระงับบริการ',
+                                insight: 'ข้อความ Disclaimer ไม่สามารถทดแทนความปลอดภัยทางวิศวกรรมได้ โดยเฉพาะในแอปพลิเคชันด้านสุขภาพ'
+                            },
+                            {
+                                text: 'ลดค่า Temperature ของโมเดลลงเป็น 0 อย่างเดียวโดยไม่เชื่อมฐานข้อมูลจริง',
+                                deltas: { k1: -6, k2: -5 },
+                                skills: { problem: 18, system: 20, ethics: 18, innovation: 18 },
+                                state: 'warning',
+                                badge: 'แก้ปัญหาได้เพียงบางส่วน',
+                                consequence: 'ผลลัพธ์: AI ตอบซ้ำเดิมมากขึ้นแต่ยังคงแต่งข้อมูลผิดๆ หากคำถามอยู่นอกความรู้เดิม',
+                                insight: 'การปรับพารามิเตอร์อย่างเดียวไม่สามารถเติมความรู้ทางการแพทย์ที่อัปเดตได้ ต้องใช้ RAG ควบคู่กัน'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'สมดุลระหว่างความเป็นส่วนตัว (Privacy) กับ AI รู้ใจผู้ใช้',
+                        desc: 'ฝ่ายผลิตภัณฑ์ต้องการดึงประวัติแชทส่วนตัวและตำแหน่ง GPS ของผู้ใช้ทุกคนมาเทรน AI เพื่อให้แนะนำสินค้าแม่นยำขึ้นโดยไม่ต้องขออนุญาตใหม่ คุณจะตัดสินใจอย่างไร?',
+                        options: [
+                            {
+                                text: 'ใช้เทคนิค Privacy-by-Design (เช่น Federated Learning / Anonymization) และขอความยินยอมแบบ Opt-in ที่โปร่งใสตามกฎหมาย PDPA',
+                                deltas: { k1: +18, k2: +24 },
+                                skills: { problem: 30, system: 34, ethics: 38, innovation: 38 },
+                                state: 'optimal',
+                                badge: 'นวัตกรรมที่เคารพสิทธิ',
+                                consequence: 'ผลลัพธ์: AI ฉลาดขึ้นโดยไม่ต้องเก็บข้อมูลระบุตัวตนบนเซิร์ฟเวอร์กลาง และถูกต้องตามกฎหมาย PDPA 100%',
+                                insight: 'เทคโนโลยี Privacy-Enhancing Technologies (PETs) อย่าง Federated Learning ช่วยให้เราสร้าง AI ที่ฉลาดควบคู่ไปกับการปกป้องความเป็นส่วนตัวได้อย่างยั่งยืน'
+                            },
+                            {
+                                text: 'แอบเก็บข้อมูลทั้งหมดไว้ในเงื่อนไขการใช้งานยาว 50 หน้าที่ไม่มีใครอ่าน',
+                                deltas: { k1: +4, k2: -28 },
+                                skills: { problem: 12, system: 12, ethics: 6, innovation: 10 },
+                                state: 'critical',
+                                badge: 'ผิดกฎหมาย PDPA',
+                                consequence: 'ผลลัพธ์: ถูกตรวจสอบและปรับเงินก้อนโตตามกฎหมายคุ้มครองข้อมูลส่วนบุคคล ผู้ใช้ลบแอปจำนวนมาก',
+                                insight: 'ความยินยอมที่ซ่อนเร้นไม่ถือเป็นความยินยอมที่ชอบธรรมตามหลัก PDPA และทำลายความเชื่อมั่นแบรนด์อย่างถาวร'
+                            },
+                            {
+                                text: 'สั่งยกเลิกฟีเจอร์ AI แนะนำสินค้าทั้งหมดเพื่อไม่ให้แตะข้อมูลผู้ใช้เลย',
+                                deltas: { k1: -10, k2: +10 },
+                                skills: { problem: 16, system: 16, ethics: 26, innovation: 12 },
+                                state: 'warning',
+                                badge: 'ปลอดภัยแต่เสียโอกาสธุรกิจ',
+                                consequence: 'ผลลัพธ์: ไม่มีความเสี่ยงด้านกฎหมายแต่ผลิตภัณฑ์ล้าหลังคู่แข่ง',
+                                insight: 'วิศวกร AI Ethics ที่เก่งไม่ได้มีหน้าที่แค่ "สั่งห้าม" แต่ต้องออกแบบทางออกทางเทคนิคที่ทั้งปลอดภัยและสร้างคุณค่าได้จริง'
+                            }
+                        ]
+                    }
+                ]
+            },
+
+            // ---------- NEW FUTURE CAREER 5 ----------
+            agritech: {
+                id: 'agritech',
+                category: 'future',
+                isFuture: true,
+                title: 'สถาปนิกเกษตรอัจฉริยะและพลังงานสะอาด',
+                engTitle: 'Smart Agri-Tech & Green Energy Architect',
+                difficulty: 'ระดับกลาง',
+                estTime: '5 นาที',
+                icon: 'sprout',
+                accent: 'emerald',
+                gradient: 'from-emerald-500 via-teal-600 to-green-700',
+                modelLabel: '3D Smart Dome, Wind Turbine & Drone',
+                skillsTags: ['IoT ฟาร์มอัจฉริยะ', 'พลังงานสะอาด', 'AI โดรนเกษตร'],
+                shortDesc: 'บริหารโรงเรือนอัจฉริยะ 3 มิติด้วย IoT พลังงานแสงอาทิตย์-กังหันลม และโดรน AI เพื่อความมั่นคงทางอาหารและลดคาร์บอน',
+                faculties: ['วิศวกรรมเกษตรอัจฉริยะและ IoT', 'วิศวกรรมพลังงานสะอาดและสิ่งแวดล้อม', 'เกษตรศาสตร์สมัยใหม่ (Smart Farming)'],
+                marketOutlook: 'วิกฤตสภาพภูมิอากาศและเป้าหมาย Net-Zero ทำให้ไทยและทั่วโลกต้องการผู้เชี่ยวชาญด้าน Agri-Tech & Clean Energy พุ่งสูงขึ้นกว่า +38% พร้อมโอกาสเป็นเจ้าของธุรกิจฟาร์มยุคใหม่',
+                kpis: [
+                    { key: 'k1', label: 'ผลผลิตและสุขภาพพืช', color: 'bg-emerald-400', init: 60 },
+                    { key: 'k2', label: 'ความยั่งยืนและพลังงานสะอาด', color: 'bg-teal-400', init: 62 }
+                ],
+                stages: [
+                    {
+                        title: 'รับมือคลื่นความร้อนและดินแห้งวิกฤตด้วยระบบ IoT',
+                        desc: 'อุณหภูมิภายนอกพุ่งสูง 42°C เซ็นเซอร์ความชื้นในดินของโรงเรือนอัจฉริยะตกลงต่ำกว่า 25% พืชเศรษฐกิจกำลังเริ่มเหี่ยวเฉา แต่น้ำในบ่อสำรองมีจำกัด คุณจะสั่งการระบบอย่างไร?',
+                        options: [
+                            {
+                                text: 'เปิดระบบน้ำหยดอัจฉริยะ (IoT Drip Irrigation) เฉพาะโซนที่ชื้นต่ำ ควบคู่กางม่านพรางแสงอัตโนมัติและพ่นหมอกลดอุณหภูมิแบบประหยัดน้ำ',
+                                deltas: { k1: +24, k2: +22 },
+                                skills: { problem: 34, system: 36, ethics: 30, innovation: 36 },
+                                state: 'optimal',
+                                badge: 'แม่นยำและประหยัดทรัพยากร',
+                                consequence: 'ผลลัพธ์: โรงเรือน 3 มิติกลับสู่ความชื้นที่เหมาะสม ประหยัดน้ำได้ถึง 65% และพืชฟื้นตัวเต็มที่',
+                                insight: 'Precision Agriculture คือการให้น้ำและสารอาหาร "ตรงจุด ตรงเวลา ตรงปริมาณ" ซึ่งช่วยลดต้นทุนและสู้กับสภาวะโลกร้อนได้ดีที่สุด'
+                            },
+                            {
+                                text: 'เปิดสปริงเกอร์ฉีดน้ำเต็มกำลังทั่วทั้งฟาร์มตลอด 24 ชั่วโมงเพื่อลดความร้อน',
+                                deltas: { k1: +4, k2: -24 },
+                                skills: { problem: 14, system: 10, ethics: 12, innovation: 10 },
+                                state: 'critical',
+                                badge: 'สูญเสียน้ำและรากเน่า',
+                                consequence: 'ผลลัพธ์: บ่อน้ำสำรองแห้งขอดใน 2 วัน และความชื้นสะสมทำให้เกิดเชื้อราที่รากพืช',
+                                insight: 'การให้น้ำมากเกินไปในวันที่อากาศร้อนจัดไม่เพียงสิ้นเปลืองทรัพยากร แต่ยังกระตุ้นโรคพืชและความเสียหายต่อราก'
+                            },
+                            {
+                                text: 'รอให้ฝนตกตามธรรมชาติและลดการทำงานของเซ็นเซอร์เพื่อประหยัดไฟ',
+                                deltas: { k1: -26, k2: +5 },
+                                skills: { problem: 10, system: 10, ethics: 14, innovation: 8 },
+                                state: 'critical',
+                                badge: 'ผลผลิตเสียหายหนัก',
+                                consequence: 'ผลลัพธ์: พืชกว่า 40% ยืนต้นตายจากภาวะเครียดความร้อน (Heat Stress)',
+                                insight: 'หัวใจของ Smart Farming คือการใช้ข้อมูลเซ็นเซอร์แบบเรียลไทม์เข้าแทรกแซงก่อนที่พืชจะเสียหายถาวร'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'วิกฤตแบตเตอรี่โซลาร์เซลล์ใกล้หมดหลังฝนตกติดกัน 3 วัน',
+                        desc: 'ฟ้าครึ้มและฝนตกต่อเนื่อง 3 วันทำให้แผงโซลาร์เซลล์ผลิตไฟได้เพียง 20% แบตเตอรี่ฟาร์มเหลือ 18% หากไฟดับระบบควบคุมอากาศในโรงเรือนจะหยุดทำงาน คุณจะบริหารพลังงานอย่างไร?',
+                        options: [
+                            {
+                                text: 'สลับโหมด Smart Microgrid ดึงไฟจากกังหันลมขนาดเล็ก ปรับลดโหลดไฟที่ไม่จำเป็น (เช่น ไฟส่องสว่างบางส่วน) และสำรองไฟให้ปั๊มน้ำ/เซ็นเซอร์หลัก',
+                                deltas: { k1: +18, k2: +25 },
+                                skills: { problem: 35, system: 38, ethics: 32, innovation: 36 },
+                                state: 'optimal',
+                                badge: 'บริหาร Microgrid ยอดเยี่ยม',
+                                consequence: 'ผลลัพธ์: กังหันลม 3 มิติหมุนจ่ายไฟเสริมอย่างเสถียร ระบบหลักทำงานต่อเนื่องโดยไม่ปล่อยคาร์บอนเพิ่ม',
+                                insight: 'ระบบพลังงานสะอาดแบบ Hybrid (Solar + Wind) พร้อมการจัดการโหลดอัจฉริยะ (Load Shedding) คือรากฐานของฟาร์มยุค Net-Zero'
+                            },
+                            {
+                                text: 'เปิดเครื่องปั่นไฟดีเซลขนาดใหญ่เต็มกำลังตลอดคืนเพื่อความสบายใจ',
+                                deltas: { k1: +12, k2: -22 },
+                                skills: { problem: 18, system: 16, ethics: 14, innovation: 12 },
+                                state: 'warning',
+                                badge: 'ต้นทุนและคาร์บอนพุ่งสูง',
+                                consequence: 'ผลลัพธ์: ฟาร์มไม่ดับแต่ค่าน้ำมันพุ่งสูงและปล่อยก๊าซเรือนกระจกเกินมาตรฐานฟาร์มสีเขียว',
+                                insight: 'เครื่องปั่นไฟฟอสซิลควรเป็นทางเลือกสุดท้ายเฉพาะเหตุฉุกเฉิน ไม่ใช่คำตอบหลักของระบบพลังงานสะอาด'
+                            },
+                            {
+                                text: 'ปล่อยให้ระบบทุกอย่างทำงานเต็มที่จนแบตเตอรี่หมดเกลี้ยงแล้วค่อยหาทางแก้',
+                                deltas: { k1: -24, k2: -18 },
+                                skills: { problem: 8, system: 8, ethics: 10, innovation: 8 },
+                                state: 'critical',
+                                badge: 'ระบบล่มทั้งฟาร์ม',
+                                consequence: 'ผลลัพธ์: แบตเตอรี่เสื่อมสภาพและระบบควบคุมอุณหภูมิดับกลางดึก',
+                                insight: 'การปล่อยให้แบตเตอรี่ Deep Discharge จนหมดเกลี้ยงทำให้อายุการใช้งานอุปกรณ์สั้นลงและเสี่ยงต่อความเสียหายของผลผลิต'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'ควบคุมศัตรูพืชแบบเกษตรอินทรีย์ด้วยโดรน AI',
+                        desc: 'โดรน AI ถ่ายภาพมัลติสเปกตรัม (Multispectral) ตรวจพบจุดเริ่มต้นของการระบาดเพลี้ยในแปลงโซน C เพียง 8% ของพื้นที่ คุณจะจัดการอย่างไร?',
+                        options: [
+                            {
+                                text: 'สั่งโดรนพ่นชีวภัณฑ์อินทรีย์ (Biopesticides) เฉพาะพิกัด GPS โซน C ที่ตรวจพบ พร้อมปล่อยแมลงตัวห้ำควบคุมสมดุลธรรมชาติ',
+                                deltas: { k1: +24, k2: +24 },
+                                skills: { problem: 32, system: 34, ethics: 36, innovation: 38 },
+                                state: 'optimal',
+                                badge: 'เกษตรแม่นยำปลอดสารพิษ',
+                                consequence: 'ผลลัพธ์: หยุดการระบาดได้ใน 48 ชั่วโมง ผลผลิตได้มาตรฐานออร์แกนิกส่งออกราคาสูง',
+                                insight: 'การใช้โดรน AI ผสานชีวภัณฑ์แบบเฉพาะจุด (Spot Spraying) ช่วยลดการใช้สารเคมีได้กว่า 90% ปลอดภัยทั้งเกษตรกร ผู้บริโภค และสิ่งแวดล้อม'
+                            },
+                            {
+                                text: 'ฉีดพ่นสารเคมีกำจัดแมลงเข้มข้นทั่วทั้งฟาร์มทุกโซนเพื่อป้องกันไว้ก่อน',
+                                deltas: { k1: +5, k2: -28 },
+                                skills: { problem: 14, system: 12, ethics: 10, innovation: 10 },
+                                state: 'critical',
+                                badge: 'ปนเปื้อนและเสียมาตรฐานออร์แกนิก',
+                                consequence: 'ผลลัพธ์: ผลผลิตถูกตีกลับจากตลาดออร์แกนิก และแมลงผสมเกสรที่มีประโยชน์ตายหมด',
+                                insight: 'การฉีดพ่นสารเคมีแบบเหวี่ยงแหทำลายระบบนิเวศในฟาร์มและลดมูลค่าสินค้าเกษตรยุคใหม่'
+                            },
+                            {
+                                text: 'ไม่ทำอะไรเลยเพราะคิดว่าเป็นพื้นที่เล็กน้อย เดี๋ยวแมลงก็ไปเอง',
+                                deltas: { k1: -22, k2: -5 },
+                                skills: { problem: 10, system: 12, ethics: 16, innovation: 10 },
+                                state: 'warning',
+                                badge: 'ระบาดลุกลามทั้งแปลง',
+                                consequence: 'ผลลัพธ์: ภายใน 5 วันเพลี้ยลุกลามไปกว่า 50% ของโรงเรือน',
+                                insight: 'จุดแข็งของโดรน AI คือการตรวจเจอเร็ว (Early Detection) หากไม่รีบจัดการจะเสียโอกาสทองในการควบคุมโรค'
+                            }
+                        ]
+                    }
+                ]
+            },
+
+            // ---------- NEW FUTURE CAREER 6 ----------
+            cybersecurity: {
+                id: 'cybersecurity',
+                category: 'future',
+                isFuture: true,
+                title: 'นักรับมือภัยคุกคามไซเบอร์',
+                engTitle: 'Cybersecurity Incident Responder',
+                difficulty: 'ระดับสูง',
+                estTime: '6 นาที',
+                icon: 'shield-alert',
+                accent: 'fuchsia',
+                gradient: 'from-fuchsia-600 via-purple-600 to-indigo-700',
+                modelLabel: '3D Server Tower & Hex Firewall',
+                skillsTags: ['SOC & Threat Hunting', 'หยุด Ransomware', 'Zero-Day Patch'],
+                shortDesc: 'ปกป้องเซิร์ฟเวอร์โรงพยาบาลจากแฮกเกอร์ ตรวจจับการเจาะระบบยามวิกาล สกัดมัลแวร์เรียกค่าไถ่ และอุดช่องโหว่ Zero-Day',
+                faculties: ['วิศวกรรมความมั่นคงปลอดภัยไซเบอร์ (Cybersecurity)', 'วิทยาการคอมพิวเตอร์', 'เทคโนโลยีสารสนเทศและเครือข่าย'],
+                marketOutlook: 'ภัยคุกคามไซเบอร์ที่ขับเคลื่อนด้วย AI เพิ่มขึ้นกว่า 300% ทำให้ตลาดแรงงานทั่วโลกขาดแคลนผู้เชี่ยวชาญ Cybersecurity กว่า 4 ล้านตำแหน่ง เป็นสายงานที่เงินเดือนเริ่มต้นสูงติดอันดับต้นๆ',
+                kpis: [
+                    { key: 'k1', label: 'ความปลอดภัยระบบและข้อมูล', color: 'bg-fuchsia-500', init: 58 },
+                    { key: 'k2', label: 'ความต่อเนื่องบริการและความโปร่งใส', color: 'bg-cyan-400', init: 64 }
+                ],
+                stages: [
+                    {
+                        title: 'ตรวจพบการล็อกอิน Admin ผิดปกติเวลา 02:15 น.',
+                        desc: 'ระบบ SIEM แจ้งเตือนว่าบัญชีผู้ดูแลระบบของโรงพยาบาลมีการล็อกอินจากต่างประเทศเวลา 02:15 น. หลังมีพนักงานกดลิงก์ Phishing เมื่อตอนเย็น คุณจะตอบสนองอย่างไร?',
+                        options: [
+                            {
+                                text: 'ระงับบัญชีและตัด Session นั้นทันที บังคับรีเซ็ตสิทธิ์พร้อมเปิด MFA และเก็บ Log หลักฐานเพื่อแกะรอยจุดเริ่มต้นการเจาะระบบ',
+                                deltas: { k1: +24, k2: +18 },
+                                skills: { problem: 36, system: 36, ethics: 32, innovation: 30 },
+                                state: 'optimal',
+                                badge: 'สกัดกั้นฉับไวและเก็บหลักฐานครบ',
+                                consequence: 'ผลลัพธ์: โล่ Firewall 3 มิติบล็อกผู้บุกรุกสำเร็จก่อนเข้าถึงฐานข้อมูลผู้ป่วย',
+                                insight: 'การควบคุมเหตุ (Containment) อย่างรวดเร็วควบคู่กับการเก็บหลักฐานทางดิจิทัล (Forensics) ช่วยหยุดความเสียหายได้ก่อนที่แฮกเกอร์จะยกระดับสิทธิ์'
+                            },
+                            {
+                                text: 'ส่งอีเมลไปถามเจ้าของบัญชีตอนเช้าว่าใช่เขาล็อกอินหรือไม่ โดยยังไม่ทำอะไรคืนนี้',
+                                deltas: { k1: -28, k2: -15 },
+                                skills: { problem: 10, system: 10, ethics: 12, innovation: 10 },
+                                state: 'critical',
+                                badge: 'เปิดช่องให้แฮกเกอร์ยึดระบบ',
+                                consequence: 'ผลลัพธ์: แฮกเกอร์มีเวลา 6 ชั่วโมงในการฝังมัลแวร์และดูดข้อมูลผู้ป่วยออกไป!',
+                                insight: 'ในงานรับมือภัยไซเบอร์ "เวลาคือทุกอย่าง" การรอถึงเช้าอาจหมายถึงการสูญเสียระบบทั้งหมด'
+                            },
+                            {
+                                text: 'ดึงปลั๊กปิดเซิร์ฟเวอร์ทั้งหมดของโรงพยาบาลทันทีโดยไม่แจ้งใคร',
+                                deltas: { k1: +8, k2: -24 },
+                                skills: { problem: 16, system: 14, ethics: 14, innovation: 12 },
+                                state: 'warning',
+                                badge: 'กระทบระบบชีวิตผู้ป่วย',
+                                consequence: 'ผลลัพธ์: ห้องฉุกเฉินดูประวัติแพ้ยาผู้ป่วยไม่ได้ และหลักฐานใน RAM หายหมด',
+                                insight: 'ไม่ควรปิดระบบวิกฤตทั้งหมดโดยไม่จำเป็น ควรแยกส่วนเฉพาะบัญชีหรือเครื่องที่ติดเชื้อ (Network Isolation)'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'ยับยั้ง Ransomware ที่กำลังแพร่กระจายโดยไม่กระทบห้องฉุกเฉิน',
+                        desc: 'มัลแวร์เรียกค่าไถ่ (Ransomware) เริ่มเข้ารหัสไฟล์ในแผนกบัญชีและกำลังสแกนหาเซิร์ฟเวอร์หลักของโรงพยาบาล คุณจะควบคุมสถานการณ์อย่างไร?',
+                        options: [
+                            {
+                                text: 'ตัดการเชื่อมต่อเครือข่าย (Network Segmentation) เฉพาะแผนกบัญชีทันที สลับระบบสำคัญไปใช้ Backup แบบ Offline (Air-Gapped) และไม่จ่ายค่าไถ่',
+                                deltas: { k1: +24, k2: +22 },
+                                skills: { problem: 36, system: 38, ethics: 34, innovation: 34 },
+                                state: 'optimal',
+                                badge: 'จำกัดวงเสียหายได้สมบูรณ์',
+                                consequence: 'ผลลัพธ์: หยุดการแพร่กระจายได้ทันเวลา ระบบห้องฉุกเฉินทำงานได้ตามปกติ 100%',
+                                insight: 'Network Segmentation + Offline Backup คือเกราะป้องกัน Ransomware ที่ดีที่สุด และหน่วยงานความมั่นคงทั่วโลกแนะนำว่า "ไม่ควรจ่ายค่าไถ่" เพราะไม่ได้รับประกันว่าจะได้ไฟล์คืน'
+                            },
+                            {
+                                text: 'รีบโอนเงินคริปโตจ่ายค่าไถ่ให้แฮกเกอร์เพื่อขอรหัสปลดล็อกให้เรื่องจบไวๆ',
+                                deltas: { k1: -25, k2: -20 },
+                                skills: { problem: 10, system: 10, ethics: 8, innovation: 8 },
+                                state: 'critical',
+                                badge: 'ตกเป็นเหยื่อซ้ำซ้อน',
+                                consequence: 'ผลลัพธ์: แฮกเกอร์รับเงินแต่ยังคงขู่ปล่อยข้อมูลและกลับมาโจมตีซ้ำในอีก 2 เดือน',
+                                insight: 'การจ่ายค่าไถ่เท่ากับการให้ทุนกลุ่มอาชญากรไซเบอร์และทำให้องค์กรถูกหมายหัวว่าเป็นเป้าหมายที่ยอมจ่ายเงินง่าย'
+                            },
+                            {
+                                text: 'สั่งพนักงานทุกคนปิดคอมพิวเตอร์แล้วเปิดใหม่หวังว่าไวรัสจะหายไปเอง',
+                                deltas: { k1: -20, k2: -14 },
+                                skills: { problem: 12, system: 10, ethics: 14, innovation: 10 },
+                                state: 'warning',
+                                badge: 'มัลแวร์ยังฝังตัวอยู่',
+                                consequence: 'ผลลัพธ์: ทันทีที่เปิดเครื่องใหม่ มัลแวร์ยังคงเข้ารหัสไฟล์ต่อและลามไปแผนกอื่น',
+                                insight: 'Ransomware สมัยใหม่ฝังตัวในระบบอัตโนมัติ (Persistence) การรีสตาร์ทไม่ช่วยแก้ปัญหา ต้องตัดเครือข่ายและล้างระบบจาก Backup ที่สะอาด'
+                            }
+                        ]
+                    },
+                    {
+                        title: 'อุดช่องโหว่ Zero-Day และการสื่อสารอย่างโปร่งใส',
+                        desc: 'คุณพบว่าแฮกเกอร์เจาะเข้ามาผ่านช่องโหว่ Zero-Day ของซอฟต์แวร์ VPN และอาจมีข้อมูลพื้นฐานบางส่วนรั่วไหล ผู้บริหารลังเลว่าจะปิดข่าวดีหรือไม่ คุณจะเสนอแนะอย่างไร?',
+                        options: [
+                            {
+                                text: 'อัปเดตแพตช์ฉุกเฉินและติดตั้ง Zero-Trust Access ทันที พร้อมรายงานหน่วยงาน สกมช./PDPA ภายใน 72 ชม. และแจ้งแนวทางป้องกันให้ผู้ได้รับผลกระทบอย่างโปร่งใส',
+                                deltas: { k1: +22, k2: +24 },
+                                skills: { problem: 32, system: 36, ethics: 38, innovation: 36 },
+                                state: 'optimal',
+                                badge: 'กู้วิกฤตและสร้างความเชื่อมั่น',
+                                consequence: 'ผลลัพธ์: อุดช่องโหว่ถาวร องค์กรได้รับคำชื่นชมในความรับผิดชอบและปฏิบัติตามกฎหมายไซเบอร์ครบถ้วน',
+                                insight: 'ความโปร่งใสในการแจ้งเหตุละเมิดข้อมูลภายใน 72 ชั่วโมงตามกฎหมาย PDPA และการยกระดับสู่ Zero-Trust Architecture คือมาตรฐานของมืออาชีพด้าน Cybersecurity'
+                            },
+                            {
+                                text: 'แอบอุดช่องโหว่เงียบๆ แล้วปิดข่าวไม่ให้ใครรู้เพื่อรักษาภาพลักษณ์',
+                                deltas: { k1: +10, k2: -28 },
+                                skills: { problem: 16, system: 18, ethics: 6, innovation: 12 },
+                                state: 'critical',
+                                badge: 'ผิดกฎหมายและเสียความน่าเชื่อถือ',
+                                consequence: 'ผลลัพธ์: ข้อมูลหลุดไปขายใน Dark Web ทำให้ถูกปรับหนักกว่าเดิมและประชาชนหมดความไว้ใจ',
+                                insight: 'การปกปิดเหตุข้อมูลรั่วไหลมีโทษทางกฎหมายหนักกว่าการถูกโจมตีเสียอีก และทำให้เหยื่อไม่สามารถป้องกันตัวเองได้ทัน'
+                            },
+                            {
+                                text: 'ประกาศข่าวออกสื่อทันทีก่อนที่จะอุดช่องโหว่และตรวจสอบความเสียหายให้เสร็จ',
+                                deltas: { k1: -15, k2: -10 },
+                                skills: { problem: 14, system: 14, ethics: 20, innovation: 12 },
+                                state: 'warning',
+                                badge: 'สื่อสารเร็วเกินไปจนเสี่ยงถูกซ้ำเติม',
+                                consequence: 'ผลลัพธ์: แฮกเกอร์กลุ่มอื่นรู้ว่ามีช่องโหว่จึงแห่เข้ามาโจมตีซ้ำก่อนจะแพตช์เสร็จ',
+                                insight: 'การสื่อสารวิกฤตไซเบอร์ต้องทำอย่างมีลำดับ: อุดรูรั่วและประเมินข้อเท็จจริงเบื้องต้นให้ชัดเจนก่อนแจ้งสาธารณะภายในกรอบเวลาที่กฎหมายกำหนด'
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        // ============================================================
+        // 2. GLOBAL APPLICATION STATE
+        // ============================================================
+        const STORAGE_KEYS = {
+            SB_URL: 'career_sandbox_sb_url',
+            SB_KEY: 'career_sandbox_sb_key',
+            STUDENT_NAME: 'career_sandbox_student_name',
+            STUDENT_ID: 'career_sandbox_student_id'
+        };
+
+        const state = {
+            viewMode: 'student',       // 'student' | 'counselor'
+            studentSubView: 'lobby',   // 'lobby' | 'workspace' | 'report'
+            categoryFilter: 'all',     // 'all' | 'core' | 'future'
+            currentCareerId: null,
+            currentStageIdx: 0,
+            stageAnswered: false,
+            kpis: { k1: 50, k2: 50 },
+            accumulatedSkills: { problem: 0, system: 0, ethics: 0, innovation: 0 },
+            completedCareers: {},      // { [careerId]: { matchPercent, rank, skills, completedAt, saveStatus, payload } }
+            arSimActive: false,
+            webARActive: false,
+            cameraStream: null,
+
+            // Current Student Identity
+            studentProfile: {
+                name: 'นายธนภัทร วงศ์สุวรรณ',
+                id: '66041 • ม.6/1'
+            },
+
+            // Supabase Live State
+            supabaseClient: null,
+            supabaseConnected: false,
+            supabaseLoading: false,
+            supabaseRecords: [],
+
+            // Counselor Dashboard Filters
+            dashboardSearch: '',
+            dashboardCareerFilter: 'all',
+
+            // Chart.js instances (stored for clean destroy/rebuild)
+            charts: {
+                radar: null,
+                bar: null,
+                doughnut: null
+            },
+
+            // Pre-filled 5 realistic Thai student records for Local Demo Mode
+            studentRecords: [
+                {
+                    student_name: 'น.ส. พิมพ์ชนก วงศ์ไพศาล',
+                    student_id: '66001 • ม.6/1',
+                    career_id: 'ai_ethics',
+                    career_title: 'วิศวกร AI และจริยธรรมข้อมูล',
+                    category: 'future',
+                    fit_score: 94,
+                    skill_problem_solving: 92,
+                    skill_communication: 90,
+                    skill_technical: 95,
+                    skill_ethics: 98,
+                    created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+                    isUser: false
+                },
+                {
+                    student_name: 'นาย กิตติภพ เจริญสุข',
+                    student_id: '67014 • ม.5/2',
+                    career_id: 'cybersecurity',
+                    career_title: 'นักรับมือภัยคุกคามไซเบอร์',
+                    category: 'future',
+                    fit_score: 91,
+                    skill_problem_solving: 96,
+                    skill_communication: 84,
+                    skill_technical: 94,
+                    skill_ethics: 90,
+                    created_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+                    isUser: false
+                },
+                {
+                    student_name: 'น.ส. ณัฐธิดา รัตนากร',
+                    student_id: '66022 • ม.6/2',
+                    career_id: 'agritech',
+                    career_title: 'สถาปนิกเกษตรอัจฉริยะและพลังงานสะอาด',
+                    category: 'future',
+                    fit_score: 89,
+                    skill_problem_solving: 88,
+                    skill_communication: 93,
+                    skill_technical: 90,
+                    skill_ethics: 86,
+                    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+                    isUser: false
+                },
+                {
+                    student_name: 'นาย ปวริศร์ ศิริวัฒน์',
+                    student_id: '67008 • ม.5/1',
+                    career_id: 'doctor',
+                    career_title: 'แพทย์ห้องฉุกเฉิน',
+                    category: 'core',
+                    fit_score: 87,
+                    skill_problem_solving: 94,
+                    skill_communication: 82,
+                    skill_technical: 86,
+                    skill_ethics: 88,
+                    created_at: new Date(Date.now() - 3600000 * 1.5).toISOString(),
+                    isUser: false
+                },
+                {
+                    student_name: 'น.ส. ชนิสรา มณีโชติ',
+                    student_id: '66035 • ม.6/3',
+                    career_id: 'ux',
+                    career_title: 'นักออกแบบ UX/UI',
+                    category: 'core',
+                    fit_score: 92,
+                    skill_problem_solving: 90,
+                    skill_communication: 96,
+                    skill_technical: 89,
+                    skill_ethics: 92,
+                    created_at: new Date(Date.now() - 3600000 * 0.5).toISOString(),
+                    isUser: false
+                }
+            ]
+        };
+
+        // ============================================================
+        // 2B. STUDENT PROFILE & SUPABASE CONNECTION MANAGER
+        // ============================================================
+        function loadSavedStudentProfile() {
+            const savedName = localStorage.getItem(STORAGE_KEYS.STUDENT_NAME);
+            const savedId = localStorage.getItem(STORAGE_KEYS.STUDENT_ID);
+            if (savedName) state.studentProfile.name = savedName;
+            if (savedId) state.studentProfile.id = savedId;
+            syncStudentProfileUI();
+        }
+
+        function syncStudentProfileUI() {
+            const navName = document.getElementById('nav-student-name');
+            if (navName) navName.textContent = state.studentProfile.name;
+
+            const lobbyName = document.getElementById('lobby-student-name');
+            const lobbyId = document.getElementById('lobby-student-id');
+            if (lobbyName) lobbyName.value = state.studentProfile.name;
+            if (lobbyId) lobbyId.value = state.studentProfile.id;
+        }
+
+        function saveStudentProfileFromLobby() {
+            const name = document.getElementById('lobby-student-name').value.trim();
+            const id = document.getElementById('lobby-student-id').value.trim();
+            if (!name || !id) {
+                showToast('กรุณากรอกทั้งชื่อ-นามสกุล และรหัสนักเรียน/ชั้นเรียน', 'info');
+                return;
+            }
+            state.studentProfile = { name, id };
+            localStorage.setItem(STORAGE_KEYS.STUDENT_NAME, name);
+            localStorage.setItem(STORAGE_KEYS.STUDENT_ID, id);
+            syncStudentProfileUI();
+            showToast(`บันทึกข้อมูลผู้เรียน "${name}" เรียบร้อยแล้ว`, 'success');
+        }
+
+        function openStudentModal() {
+            document.getElementById('modal-student-name').value = state.studentProfile.name;
+            document.getElementById('modal-student-id').value = state.studentProfile.id;
+            const modal = document.getElementById('student-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeStudentModal() {
+            const modal = document.getElementById('student-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function saveStudentProfileFromModal(e) {
+            e.preventDefault();
+            const name = document.getElementById('modal-student-name').value.trim();
+            const id = document.getElementById('modal-student-id').value.trim();
+            if (!name || !id) return;
+            state.studentProfile = { name, id };
+            localStorage.setItem(STORAGE_KEYS.STUDENT_NAME, name);
+            localStorage.setItem(STORAGE_KEYS.STUDENT_ID, id);
+            syncStudentProfileUI();
+            closeStudentModal();
+            showToast(`อัปเดตชื่อผู้เรียนเป็น "${name}" แล้ว`, 'success');
+        }
+
+        function openSupabaseModal() {
+            document.getElementById('sb-url-input').value = localStorage.getItem(STORAGE_KEYS.SB_URL) || '';
+            document.getElementById('sb-key-input').value = localStorage.getItem(STORAGE_KEYS.SB_KEY) || '';
+            const banner = document.getElementById('sb-status-banner');
+            if (state.supabaseConnected) {
+                banner.className = 'rounded-xl p-3.5 text-xs font-medium border bg-emerald-950/50 border-emerald-500/40 text-emerald-300';
+                banner.textContent = '✅ เชื่อมต่อกับ Supabase สำเร็จแล้ว ระบบกำลังจัดเก็บและดึงข้อมูลแบบเรียลไทม์';
+            } else {
+                banner.className = 'hidden';
+            }
+            const modal = document.getElementById('supabase-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeSupabaseModal() {
+            const modal = document.getElementById('supabase-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function toggleSqlAccordion() {
+            const panel = document.getElementById('sql-code-panel');
+            const chevron = document.getElementById('sql-chevron');
+            const isHidden = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !isHidden);
+            chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        function copySqlCode() {
+            const sqlText = document.getElementById('supabase-sql-code').textContent;
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = sqlText;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('คัดลอกโค้ด SQL สำหรับสร้างตารางเรียบร้อยแล้ว', 'success');
+            } catch (err) {
+                showToast('ไม่สามารถคัดลอกได้ กรุณาคลุมดำและคัดลอกด้วยตนเอง', 'info');
+            }
+        }
+
+        function updateSupabaseNavIndicator() {
+            const btn = document.getElementById('nav-supabase-btn');
+            const dot = document.getElementById('nav-supabase-dot');
+            const txt = document.getElementById('nav-supabase-text');
+            if (!btn) return;
+
+            if (state.supabaseConnected) {
+                btn.className = 'inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-xs font-semibold transition-all';
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+                txt.textContent = 'Supabase Connected';
+            } else {
+                btn.className = 'inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/35 text-amber-300 text-xs font-semibold transition-all';
+                dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+                txt.textContent = 'Local Demo';
+            }
+        }
+
+        async function initSupabaseConnection(url, key, showFeedback = true) {
+            const banner = document.getElementById('sb-status-banner');
+            const btn = document.getElementById('btn-sb-connect');
+
+            if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+                if (showFeedback && banner) {
+                    banner.className = 'rounded-xl p-3.5 text-xs font-medium border bg-rose-950/50 border-rose-500/40 text-rose-300';
+                    banner.textContent = '❌ ไม่พบไลบรารี Supabase SDK กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+                }
+                return false;
+            }
+
+            if (btn && showFeedback) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>กำลังทดสอบการเชื่อมต่อ...</span>`;
+                lucide.createIcons();
+            }
+
+            try {
+                const client = window.supabase.createClient(url, key);
+                const { error } = await client
+                    .from('career_sandbox_results')
+                    .select('id')
+                    .limit(1);
+
+                if (error) throw error;
+
+                state.supabaseClient = client;
+                state.supabaseConnected = true;
+                localStorage.setItem(STORAGE_KEYS.SB_URL, url);
+                localStorage.setItem(STORAGE_KEYS.SB_KEY, key);
+                updateSupabaseNavIndicator();
+
+                if (showFeedback) {
+                    if (banner) {
+                        banner.className = 'rounded-xl p-3.5 text-xs font-medium border bg-emerald-950/50 border-emerald-500/40 text-emerald-300';
+                        banner.textContent = '✅ เชื่อมต่อ Supabase และตรวจสอบตาราง career_sandbox_results สำเร็จแล้ว!';
+                    }
+                    showToast('เชื่อมต่อฐานข้อมูล Supabase สำเร็จแล้ว!', 'success');
+                }
+
+                if (state.viewMode === 'counselor') {
+                    await fetchSupabaseResults();
+                    renderCounselorDashboard();
+                }
+                return true;
+            } catch (err) {
+                state.supabaseClient = null;
+                state.supabaseConnected = false;
+                updateSupabaseNavIndicator();
+
+                if (showFeedback) {
+                    const msg = err && err.message ? err.message : 'ไม่สามารถเชื่อมต่อได้';
+                    if (banner) {
+                        banner.className = 'rounded-xl p-3.5 text-xs font-medium border bg-rose-950/50 border-rose-500/40 text-rose-300';
+                        banner.textContent = `❌ เชื่อมต่อไม่สำเร็จ: ${msg} (โปรดตรวจสอบ URL, Anon Key และรันโค้ด SQL สร้างตารางก่อน)`;
+                    }
+                    showToast('เชื่อมต่อ Supabase ไม่สำเร็จ กรุณาตรวจสอบการตั้งค่า', 'info');
+                }
+                return false;
+            } finally {
+                if (btn && showFeedback) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i data-lucide="plug-zap" class="w-4 h-4"></i><span>ทดสอบและเชื่อมต่อ (Connect & Test)</span>`;
+                    lucide.createIcons();
+                }
+            }
+        }
+
+        async function connectAndTestSupabase() {
+            const url = document.getElementById('sb-url-input').value.trim();
+            const key = document.getElementById('sb-key-input').value.trim();
+            if (!url || !key) {
+                const banner = document.getElementById('sb-status-banner');
+                banner.className = 'rounded-xl p-3.5 text-xs font-medium border bg-amber-950/50 border-amber-500/40 text-amber-300';
+                banner.textContent = '⚠️ กรุณากรอกทั้ง Supabase Project URL และ Anon Key';
+                return;
+            }
+            await initSupabaseConnection(url, key, true);
+        }
+
+        function disconnectSupabase() {
+            state.supabaseClient = null;
+            state.supabaseConnected = false;
+            state.supabaseRecords = [];
+            localStorage.removeItem(STORAGE_KEYS.SB_URL);
+            localStorage.removeItem(STORAGE_KEYS.SB_KEY);
+            document.getElementById('sb-url-input').value = '';
+            document.getElementById('sb-key-input').value = '';
+            const banner = document.getElementById('sb-status-banner');
+            banner.className = 'rounded-xl p-3.5 text-xs font-medium border bg-amber-950/50 border-amber-500/40 text-amber-300';
+            banner.textContent = '💾 ยกเลิกการเชื่อมต่อแล้ว กลับสู่โหมดจำลอง (Local Demo)';
+            updateSupabaseNavIndicator();
+            if (state.viewMode === 'counselor') renderCounselorDashboard();
+            showToast('สลับกลับเป็นโหมด Local Demo แล้ว', 'info');
+        }
+
+        async function saveResultToSupabase(payload) {
+            if (!state.supabaseConnected || !state.supabaseClient) {
+                return { status: 'local', error: null };
+            }
+            try {
+                const { error } = await state.supabaseClient
+                    .from('career_sandbox_results')
+                    .insert([payload]);
+                if (error) throw error;
+                return { status: 'saved', error: null };
+            } catch (err) {
+                return { status: 'error', error: err.message || 'เกิดข้อผิดพลาดในการบันทึก' };
+            }
+        }
+
+        async function fetchSupabaseResults() {
+            if (!state.supabaseConnected || !state.supabaseClient) return;
+            state.supabaseLoading = true;
+            try {
+                const { data, error } = await state.supabaseClient
+                    .from('career_sandbox_results')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                state.supabaseRecords = data || [];
+            } catch (err) {
+                showToast(`ดึงข้อมูลจาก Supabase ไม่สำเร็จ: ${err.message}`, 'info');
+            } finally {
+                state.supabaseLoading = false;
+            }
+        }
+
+        // ============================================================
+        // 3. THREE.JS INTERACTIVE 3D ENGINE (6 CAREER MODELS)
+        // ============================================================
+        const ThreeEngine = {
+            scene: null,
+            camera: null,
+            renderer: null,
+            modelGroup: null,
+            ambientLight: null,
+            pointLight: null,
+            initialized: false,
+            isDragging: false,
+            prevPointer: { x: 0, y: 0 },
+            targetRot: { x: 0.2, y: 0.4 },
+            zoomDistance: 5.2,
+            visualState: 'neutral', // 'neutral' | 'optimal' | 'warning' | 'critical'
+            currentCareer: null,
+            animParts: {},
+            clock: null,
+
+            init() {
+                const container = document.getElementById('three-container');
+                if (!container || typeof THREE === 'undefined') return;
+
+                if (!this.initialized) {
+                    this.scene = new THREE.Scene();
+                    this.clock = new THREE.Clock();
+
+                    const w = container.clientWidth || 500;
+                    const h = container.clientHeight || 380;
+                    this.camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+                    this.camera.position.set(0, 0.4, this.zoomDistance);
+
+                    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                    this.renderer.setSize(w, h);
+                    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+                    container.innerHTML = '';
+                    container.appendChild(this.renderer.domElement);
+
+                    // Lighting
+                    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+                    this.scene.add(this.ambientLight);
+
+                    const dirLight = new THREE.DirectionalLight(0xe0f2fe, 1.0);
+                    dirLight.position.set(5, 8, 6);
+                    this.scene.add(dirLight);
+
+                    this.pointLight = new THREE.PointLight(0x38bdf8, 1.4, 20);
+                    this.pointLight.position.set(-3, 2, 4);
+                    this.scene.add(this.pointLight);
+
+                    this.modelGroup = new THREE.Group();
+                    this.scene.add(this.modelGroup);
+
+                    this.bindPointerEvents(this.renderer.domElement);
+                    window.addEventListener('resize', () => this.resize());
+
+                    this.initialized = true;
+                    this.animate();
+                } else {
+                    this.resize();
+                }
+            },
+
+            bindPointerEvents(dom) {
+                const startDrag = (x, y) => {
+                    this.isDragging = true;
+                    this.prevPointer = { x, y };
+                };
+                const moveDrag = (x, y) => {
+                    if (!this.isDragging) return;
+                    const dx = x - this.prevPointer.x;
+                    const dy = y - this.prevPointer.y;
+                    this.targetRot.y += dx * 0.01;
+                    this.targetRot.x = Math.max(-1.1, Math.min(1.1, this.targetRot.x + dy * 0.01));
+                    this.prevPointer = { x, y };
+                };
+                const endDrag = () => { this.isDragging = false; };
+
+                dom.addEventListener('mousedown', e => startDrag(e.clientX, e.clientY));
+                window.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+                window.addEventListener('mouseup', endDrag);
+
+                dom.addEventListener('touchstart', e => {
+                    if (e.touches.length === 1) startDrag(e.touches[0].clientX, e.touches[0].clientY);
+                }, { passive: true });
+                dom.addEventListener('touchmove', e => {
+                    if (e.touches.length === 1) moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+                }, { passive: true });
+                dom.addEventListener('touchend', endDrag);
+
+                dom.addEventListener('wheel', e => {
+                    e.preventDefault();
+                    this.zoomDistance = Math.max(2.6, Math.min(9.0, this.zoomDistance + e.deltaY * 0.004));
+                }, { passive: false });
+            },
+
+            resize() {
+                if (!this.initialized) return;
+                const container = document.getElementById('three-container');
+                if (!container) return;
+                const w = container.clientWidth || 500;
+                const h = container.clientHeight || 380;
+                this.camera.aspect = w / h;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(w, h);
+            },
+
+            zoomIn() {
+                this.zoomDistance = Math.max(2.6, this.zoomDistance - 0.7);
+            },
+
+            zoomOut() {
+                this.zoomDistance = Math.min(9.0, this.zoomDistance + 0.7);
+            },
+
+            resetView() {
+                this.targetRot = { x: 0.2, y: 0.4 };
+                this.zoomDistance = 5.2;
+            },
+
+            clearModel() {
+                if (!this.modelGroup) return;
+                while (this.modelGroup.children.length > 0) {
+                    const obj = this.modelGroup.children[0];
+                    this.modelGroup.remove(obj);
+                }
+                this.animParts = {};
+            },
+
+            loadCareerModel(careerId) {
+                this.init();
+                this.clearModel();
+                this.currentCareer = careerId;
+                this.visualState = 'neutral';
+                this.resetView();
+
+                const g = this.modelGroup;
+
+                if (careerId === 'doctor') {
+                    // Stylized 3D Bio-Heart & Orbiting ECG Rings
+                    const heartMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.3, metalness: 0.25, emissive: 0x881337, emissiveIntensity: 0.4 });
+                    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.95, 1), heartMat);
+                    g.add(core);
+
+                    const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true });
+                    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.04, 12, 48), ringMat);
+                    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.85, 0.03, 12, 48), new THREE.MeshBasicMaterial({ color: 0xfb7185, transparent: true, opacity: 0.6 }));
+                    ring2.rotation.x = Math.PI / 2.5;
+                    g.add(ring1, ring2);
+                    this.animParts = { primaryMat: heartMat, core, ring1, ring2 };
+
+                } else if (careerId === 'engineer') {
+                    // 3D Truss Bridge & Load Beams
+                    const deckMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5, metalness: 0.6 });
+                    const deck = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.18, 1.1), deckMat);
+                    deck.position.y = -0.35;
+                    g.add(deck);
+
+                    const beamMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35, metalness: 0.5, emissive: 0x78350f, emissiveIntensity: 0.3 });
+                    for (let i = -1.4; i <= 1.41; i += 0.7) {
+                        const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.0, 0.1), beamMat);
+                        pillar.position.set(i, 0.15, 0.45);
+                        g.add(pillar);
+                        const pillarB = pillar.clone();
+                        pillarB.position.z = -0.45;
+                        g.add(pillarB);
+                    }
+                    const topRailF = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.1, 0.1), beamMat);
+                    topRailF.position.set(0, 0.65, 0.45);
+                    const topRailB = topRailF.clone();
+                    topRailB.position.z = -0.45;
+                    g.add(topRailF, topRailB);
+
+                    const nodeMat = new THREE.MeshStandardMaterial({ color: 0x22d3ee, emissive: 0x0891b2, emissiveIntensity: 0.7 });
+                    const stressNode = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), nodeMat);
+                    stressNode.position.set(0, -0.15, 0);
+                    g.add(stressNode);
+                    this.animParts = { primaryMat: beamMat, core: stressNode };
+
+                } else if (careerId === 'ux') {
+                    // 3D Holographic UI Layers
+                    const layers = [];
+                    const colors = [0x8b5cf6, 0x6366f1, 0x22d3ee];
+                    colors.forEach((col, idx) => {
+                        const mat = new THREE.MeshStandardMaterial({ color: col, transparent: true, opacity: 0.55, roughness: 0.2, metalness: 0.3, emissive: col, emissiveIntensity: 0.3 });
+                        const card = new THREE.Mesh(new THREE.BoxGeometry(2.2 - idx * 0.25, 1.4 - idx * 0.15, 0.06), mat);
+                        card.position.z = (idx - 1) * 0.55;
+                        g.add(card);
+                        layers.push(card);
+                    });
+                    this.animParts = { primaryMat: layers[0].material, layers };
+
+                } else if (careerId === 'ai_ethics') {
+                    // 3D Neural Network Core
+                    const coreMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, emissive: 0x0284c7, emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.6 });
+                    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.75, 1), coreMat);
+                    g.add(core);
+
+                    const orbitGroup = new THREE.Group();
+                    const nodeMat = new THREE.MeshStandardMaterial({ color: 0x818cf8, emissive: 0x4f46e5, emissiveIntensity: 0.5 });
+                    for (let i = 0; i < 10; i++) {
+                        const phi = Math.acos(-1 + (2 * i) / 10);
+                        const theta = Math.sqrt(10 * Math.PI) * phi;
+                        const node = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 12), nodeMat);
+                        node.position.set(1.55 * Math.cos(theta) * Math.sin(phi), 1.55 * Math.sin(theta) * Math.sin(phi), 1.55 * Math.cos(phi));
+                        orbitGroup.add(node);
+                    }
+                    const cage = new THREE.Mesh(new THREE.IcosahedronGeometry(1.55, 1), new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.35 }));
+                    orbitGroup.add(cage);
+                    g.add(orbitGroup);
+                    this.animParts = { primaryMat: coreMat, core, orbitGroup };
+
+                } else if (careerId === 'agritech') {
+                    // 3D Smart Dome, Wind Turbine & Drone
+                    const base = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.85, 0.16, 32), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 }));
+                    base.position.y = -0.7;
+                    g.add(base);
+
+                    const domeMat = new THREE.MeshStandardMaterial({ color: 0x10b981, transparent: true, opacity: 0.45, roughness: 0.2, emissive: 0x047857, emissiveIntensity: 0.35 });
+                    const dome = new THREE.Mesh(new THREE.SphereGeometry(1.0, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), domeMat);
+                    dome.position.set(-0.35, -0.62, 0);
+                    g.add(dome);
+                    const domeWire = new THREE.Mesh(new THREE.SphereGeometry(1.02, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x34d399, wireframe: true, transparent: true, opacity: 0.5 }));
+                    domeWire.position.copy(dome.position);
+                    g.add(domeWire);
+
+                    // Wind Turbine
+                    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 1.8, 12), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+                    pole.position.set(1.15, 0.2, -0.2);
+                    g.add(pole);
+                    const rotor = new THREE.Group();
+                    rotor.position.set(1.15, 1.05, -0.1);
+                    for (let i = 0; i < 3; i++) {
+                        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.65, 0.02), new THREE.MeshStandardMaterial({ color: 0x22d3ee }));
+                        blade.position.y = 0.32;
+                        const pivot = new THREE.Group();
+                        pivot.rotation.z = (i * Math.PI * 2) / 3;
+                        pivot.add(blade);
+                        rotor.add(pivot);
+                    }
+                    g.add(rotor);
+
+                    // Hovering IoT Drone
+                    const drone = new THREE.Mesh(new THREE.OctahedronGeometry(0.18, 0), new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xca8a04, emissiveIntensity: 0.5 }));
+                    drone.position.set(-0.35, 1.0, 0.4);
+                    g.add(drone);
+                    this.animParts = { primaryMat: domeMat, rotor, drone };
+
+                } else {
+                    // Cybersecurity: 3D Server Tower & Hex Firewall
+                    const serverMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35, metalness: 0.7 });
+                    const tower = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.0, 0.9), serverMat);
+                    g.add(tower);
+
+                    const shieldMat = new THREE.MeshStandardMaterial({ color: 0xd946ef, wireframe: true, emissive: 0xa21caf, emissiveIntensity: 0.6 });
+                    const shield = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.55, 2.3, 6, 3, true), shieldMat);
+                    g.add(shield);
+
+                    const ledMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+                    for (let i = -0.6; i <= 0.6; i += 0.3) {
+                        const led = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.04), ledMat);
+                        led.position.set(0, i, 0.47);
+                        g.add(led);
+                    }
+                    this.animParts = { primaryMat: shieldMat, shield, ledMat };
+                }
+            },
+
+            setVisualState(newState) {
+                this.visualState = newState;
+                const colorMap = {
+                    optimal: 0x10b981,
+                    warning: 0xf59e0b,
+                    critical: 0xf43f5e,
+                    neutral: 0x38bdf8
+                };
+                const col = colorMap[newState] || 0x38bdf8;
+                if (this.pointLight) this.pointLight.color.setHex(col);
+                if (this.animParts.primaryMat) {
+                    this.animParts.primaryMat.emissive.setHex(col);
+                    this.animParts.primaryMat.emissiveIntensity = newState === 'critical' ? 0.95 : 0.55;
+                }
+                if (this.animParts.ledMat) {
+                    this.animParts.ledMat.color.setHex(col);
+                }
+            },
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                if (!this.initialized || !this.renderer) return;
+
+                const t = this.clock ? this.clock.getElapsedTime() : 0;
+                const speedMult = this.visualState === 'critical' ? 2.4 : (this.visualState === 'optimal' ? 1.2 : 0.8);
+
+                if (!this.isDragging) {
+                    this.targetRot.y += 0.004 * speedMult;
+                }
+
+                if (this.modelGroup) {
+                    this.modelGroup.rotation.y += (this.targetRot.y - this.modelGroup.rotation.y) * 0.1;
+                    this.modelGroup.rotation.x += (this.targetRot.x - this.modelGroup.rotation.x) * 0.1;
+                }
+
+                this.camera.position.z += (this.zoomDistance - this.camera.position.z) * 0.12;
+
+                // Model-specific subtle animations
+                if (this.currentCareer === 'doctor' && this.animParts.core) {
+                    const beat = 1 + Math.sin(t * (this.visualState === 'critical' ? 9 : 4.5)) * 0.08;
+                    this.animParts.core.scale.set(beat, beat, beat);
+                    if (this.animParts.ring1) this.animParts.ring1.rotation.z = t * 0.7;
+                    if (this.animParts.ring2) this.animParts.ring2.rotation.y = -t * 0.6;
+                } else if (this.currentCareer === 'ux' && this.animParts.layers) {
+                    this.animParts.layers.forEach((layer, idx) => {
+                        layer.position.y = Math.sin(t * 2 + idx) * 0.08;
+                    });
+                } else if (this.currentCareer === 'ai_ethics' && this.animParts.orbitGroup) {
+                    this.animParts.orbitGroup.rotation.y = -t * 0.5 * speedMult;
+                    this.animParts.orbitGroup.rotation.x = Math.sin(t * 0.4) * 0.25;
+                } else if (this.currentCareer === 'agritech') {
+                    if (this.animParts.rotor) this.animParts.rotor.rotation.z -= 0.06 * speedMult;
+                    if (this.animParts.drone) {
+                        this.animParts.drone.position.y = 0.95 + Math.sin(t * 3) * 0.15;
+                        this.animParts.drone.position.x = -0.35 + Math.cos(t * 1.2) * 0.55;
+                    }
+                } else if (this.currentCareer === 'cybersecurity' && this.animParts.shield) {
+                    this.animParts.shield.rotation.y = -t * 0.6 * speedMult;
+                }
+
+                this.renderer.render(this.scene, this.camera);
+            }
+        };
+
+        // ============================================================
+        // 4. VIEW MODE & NAVIGATION
+        // ============================================================
+        function switchViewMode(mode) {
+            state.viewMode = mode;
+            const studentEl = document.getElementById('mode-student');
+            const counselorEl = document.getElementById('mode-counselor');
+            const btnStudent = document.getElementById('nav-btn-student');
+            const btnCounselor = document.getElementById('nav-btn-counselor');
+
+            if (mode === 'student') {
+                studentEl.classList.remove('hidden');
+                counselorEl.classList.add('hidden');
+                btnStudent.className = 'flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md transition-all';
+                btnCounselor.className = 'flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-all';
+                if (state.studentSubView === 'workspace') {
+                    setTimeout(() => ThreeEngine.resize(), 60);
+                }
+            } else {
+                stopWebARCamera();
+                studentEl.classList.add('hidden');
+                counselorEl.classList.remove('hidden');
+                btnCounselor.className = 'flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md transition-all';
+                btnStudent.className = 'flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-all';
+                if (state.supabaseConnected) {
+                    renderCounselorDashboard();
+                    fetchSupabaseResults().then(() => renderCounselorDashboard());
+                } else {
+                    renderCounselorDashboard();
+                }
+            }
+            lucide.createIcons();
+        }
+
+        function setStudentSubView(subView) {
+            state.studentSubView = subView;
+            ['lobby', 'workspace', 'report'].forEach(v => {
+                document.getElementById(`student-${v}`).classList.toggle('hidden', v !== subView);
+            });
+            if (subView !== 'workspace') {
+                stopWebARCamera();
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function goToLobby() {
+            switchViewMode('student');
+            setStudentSubView('lobby');
+            renderLobby();
+        }
+
+        // ============================================================
+        // 5. STUDENT LOBBY & CATEGORY FILTER
+        // ============================================================
+        function setCategoryFilter(cat) {
+            state.categoryFilter = cat;
+            renderLobby();
+        }
+
+        function renderLobby() {
+            // Update filter button styles
+            ['all', 'core', 'future'].forEach(cat => {
+                const btn = document.getElementById(`filter-btn-${cat}`);
+                if (!btn) return;
+                if (cat === state.categoryFilter) {
+                    btn.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md transition-all';
+                } else {
+                    btn.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800/70 transition-all';
+                }
+            });
+
+            // Update progress card
+            const completedCount = Object.keys(state.completedCareers).length;
+            const totalCareers = Object.keys(CAREERS).length;
+            const pct = Math.round((completedCount / totalCareers) * 100);
+            document.getElementById('lobby-progress-count').textContent = `${completedCount} / ${totalCareers}`;
+            document.getElementById('lobby-progress-bar').style.width = `${pct}%`;
+            document.getElementById('lobby-progress-summary').textContent = completedCount === 0
+                ? 'เลือกบทเรียนด้านล่างเพื่อเริ่มจำลองอาชีพแรกของคุณ'
+                : `คุณปลดล็อกแล้ว ${completedCount} จาก ${totalCareers} อาชีพ (${pct}%) — ลองเล่นให้ครบเพื่อค้นหา Career DNA ที่แม่นยำที่สุด`;
+
+            // Filter & render cards
+            const list = Object.values(CAREERS).filter(c => state.categoryFilter === 'all' || c.category === state.categoryFilter);
+            const grid = document.getElementById('career-cards-grid');
+
+            grid.innerHTML = list.map(c => {
+                const done = state.completedCareers[c.id];
+                return `
+                    <div class="group relative bg-slate-900/90 rounded-3xl border ${done ? 'border-emerald-500/40' : 'border-slate-800'} hover:border-cyan-500/50 overflow-hidden shadow-xl transition-all hover:-translate-y-1 flex flex-col justify-between">
+                        <div>
+                            <div class="h-2 bg-gradient-to-r ${c.gradient}"></div>
+                            <div class="p-6 space-y-4">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br ${c.gradient} flex items-center justify-center text-white shadow-lg">
+                                        <i data-lucide="${c.icon}" class="w-6 h-6"></i>
+                                    </div>
+                                    <div class="flex flex-wrap justify-end gap-1.5">
+                                        ${c.isFuture ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40">อนาคต ✨</span>` : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">อาชีพหลัก</span>`}
+                                        ${done ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Fit ${done.matchPercent}%</span>` : ''}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h4 class="text-lg font-bold text-white group-hover:text-cyan-300 transition-colors leading-snug">${c.title}</h4>
+                                    <p class="text-xs text-slate-400 mt-0.5">${c.engTitle}</p>
+                                </div>
+
+                                <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">${c.shortDesc}</p>
+
+                                <div class="flex flex-wrap gap-1.5 pt-1">
+                                    ${c.skillsTags.map(t => `<span class="px-2.5 py-1 rounded-lg bg-slate-950/80 text-slate-300 border border-slate-800 text-[11px] font-medium">${t}</span>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="px-6 pb-6 pt-2 flex items-center justify-between gap-2">
+                            <span class="text-[11px] text-slate-400 flex items-center gap-1">
+                                <i data-lucide="clock" class="w-3.5 h-3.5 text-cyan-400"></i> ${c.estTime} • ${c.difficulty}
+                            </span>
+                            <div class="flex items-center gap-2">
+                                ${done ? `<button onclick="openSavedReport('${c.id}')" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-semibold border border-slate-700 transition-colors">ดูผล</button>` : ''}
+                                <button onclick="startSimulation('${c.id}')" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r ${c.gradient} text-white text-xs font-bold shadow-md hover:opacity-95 transition-all active:scale-95">
+                                    <span>${done ? 'เล่นซ้ำ' : 'เริ่มจำลอง'}</span>
+                                    <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        // ============================================================
+        // 6. INTERACTIVE SIMULATION WORKSPACE LOGIC
+        // ============================================================
+        function startSimulation(careerId) {
+            const career = CAREERS[careerId];
+            if (!career) return;
+
+            // Sync student info from Lobby inputs if typed
+            const lobbyName = document.getElementById('lobby-student-name');
+            const lobbyId = document.getElementById('lobby-student-id');
+            if (lobbyName && lobbyName.value.trim()) state.studentProfile.name = lobbyName.value.trim();
+            if (lobbyId && lobbyId.value.trim()) state.studentProfile.id = lobbyId.value.trim();
+            syncStudentProfileUI();
+
+            state.currentCareerId = careerId;
+            state.currentStageIdx = 0;
+            state.stageAnswered = false;
+            state.kpis = { k1: career.kpis[0].init, k2: career.kpis[1].init };
+            state.accumulatedSkills = { problem: 0, system: 0, ethics: 0, innovation: 0 };
+
+            document.getElementById('ws-career-title').textContent = career.title;
+            document.getElementById('ws-career-eng').textContent = career.engTitle;
+            document.getElementById('ws-model-label').textContent = career.modelLabel;
+            document.getElementById('ws-future-badge').classList.toggle('hidden', !career.isFuture);
+
+            setStudentSubView('workspace');
+            updateKPIUI();
+            updateLiveStatus('neutral');
+            renderStage();
+
+            setTimeout(() => {
+                ThreeEngine.loadCareerModel(careerId);
+            }, 60);
+        }
+
+        function updateKPIUI() {
+            const career = CAREERS[state.currentCareerId];
+            if (!career) return;
+            const grid = document.getElementById('ws-kpi-grid');
+            grid.innerHTML = career.kpis.map(k => {
+                const val = Math.max(0, Math.min(100, state.kpis[k.key]));
+                return `
+                    <div class="bg-slate-950/70 rounded-xl p-3 border border-slate-800 space-y-1.5">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-slate-300 font-medium">${k.label}</span>
+                            <span class="font-mono font-bold text-white">${val}%</span>
+                        </div>
+                        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div class="h-full ${k.color} rounded-full transition-all duration-500" style="width: ${val}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateLiveStatus(statusState) {
+            const pill = document.getElementById('ws-live-status');
+            if (!pill) return;
+            const styles = {
+                neutral: { cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30', dot: 'bg-amber-400', text: 'สถานะโมเดล 3D: รอการตัดสินใจ' },
+                optimal: { cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/35', dot: 'bg-emerald-400', text: 'สถานะโมเดล 3D: เสถียรและยอดเยี่ยม' },
+                warning: { cls: 'bg-amber-500/20 text-amber-200 border-amber-400/40', dot: 'bg-amber-400', text: 'สถานะโมเดล 3D: เฝ้าระวัง / ยังไม่เหมาะสมที่สุด' },
+                critical: { cls: 'bg-rose-500/20 text-rose-300 border-rose-500/40', dot: 'bg-rose-500', text: 'สถานะโมเดล 3D: วิกฤต! เกิดความเสี่ยงสูง' }
+            };
+            const s = styles[statusState] || styles.neutral;
+            pill.className = `inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold border ${s.cls}`;
+            pill.innerHTML = `<span class="w-2 h-2 rounded-full ${s.dot} animate-ping"></span><span>${s.text}</span>`;
+        }
+
+        function renderStage() {
+            const career = CAREERS[state.currentCareerId];
+            const stage = career.stages[state.currentStageIdx];
+            const total = career.stages.length;
+            const num = state.currentStageIdx + 1;
+            const pct = Math.round((num / total) * 100);
+
+            state.stageAnswered = false;
+            document.getElementById('ws-stage-label').textContent = `ด่านที่ ${num} / ${total}`;
+            document.getElementById('ws-stage-pct').textContent = `${pct}%`;
+            document.getElementById('ws-stage-bar').style.width = `${pct}%`;
+            document.getElementById('sc-badge').textContent = `ภารกิจจำลองที่ ${num}`;
+            document.getElementById('sc-title').textContent = stage.title;
+            document.getElementById('sc-desc').textContent = stage.desc;
+
+            const insightBox = document.getElementById('expert-insight-box');
+            insightBox.classList.add('hidden');
+
+            const optWrap = document.getElementById('sc-options');
+            const letters = ['A', 'B', 'C'];
+            optWrap.innerHTML = stage.options.map((opt, idx) => `
+                <button onclick="selectOption(${idx})" id="opt-btn-${idx}" class="w-full text-left p-4 rounded-xl bg-slate-950/70 hover:bg-slate-800/90 border border-slate-800 hover:border-cyan-500/50 transition-all flex items-start gap-3 group">
+                    <span class="w-7 h-7 rounded-lg bg-slate-800 group-hover:bg-cyan-500 group-hover:text-slate-950 text-cyan-300 font-bold text-xs flex items-center justify-center shrink-0 transition-colors mt-0.5">${letters[idx]}</span>
+                    <span class="text-sm text-slate-200 leading-relaxed">${opt.text}</span>
+                </button>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function selectOption(optIdx) {
+            if (state.stageAnswered) return;
+            state.stageAnswered = true;
+
+            const career = CAREERS[state.currentCareerId];
+            const stage = career.stages[state.currentStageIdx];
+            const opt = stage.options[optIdx];
+
+            // Apply KPI & Skill deltas
+            state.kpis.k1 = Math.max(5, Math.min(100, state.kpis.k1 + (opt.deltas.k1 || 0)));
+            state.kpis.k2 = Math.max(5, Math.min(100, state.kpis.k2 + (opt.deltas.k2 || 0)));
+            state.accumulatedSkills.problem += opt.skills.problem || 0;
+            state.accumulatedSkills.system += opt.skills.system || 0;
+            state.accumulatedSkills.ethics += opt.skills.ethics || 0;
+            state.accumulatedSkills.innovation += opt.skills.innovation || 0;
+
+            updateKPIUI();
+            updateLiveStatus(opt.state);
+            ThreeEngine.setVisualState(opt.state);
+
+            // Highlight selected option & disable others
+            stage.options.forEach((_, idx) => {
+                const btn = document.getElementById(`opt-btn-${idx}`);
+                if (!btn) return;
+                btn.disabled = true;
+                if (idx === optIdx) {
+                    const ring = opt.state === 'optimal' ? 'border-emerald-500 bg-emerald-950/35' : (opt.state === 'critical' ? 'border-rose-500 bg-rose-950/35' : 'border-amber-500 bg-amber-950/35');
+                    btn.className = `w-full text-left p-4 rounded-xl border-2 ${ring} flex items-start gap-3 transition-all`;
+                } else {
+                    btn.className = 'w-full text-left p-4 rounded-xl bg-slate-950/40 border border-slate-800/60 opacity-50 flex items-start gap-3';
+                }
+            });
+
+            // Show Expert Insight box
+            const box = document.getElementById('expert-insight-box');
+            const iconWrap = document.getElementById('insight-icon-wrap');
+            const badge = document.getElementById('insight-impact-badge');
+
+            if (opt.state === 'optimal') {
+                box.className = 'rounded-2xl p-4 sm:p-5 border border-emerald-500/40 bg-emerald-950/35 animate-fade-up space-y-3';
+                iconWrap.className = 'w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0';
+                badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/25 text-emerald-200 border border-emerald-400/40';
+            } else if (opt.state === 'critical') {
+                box.className = 'rounded-2xl p-4 sm:p-5 border border-rose-500/40 bg-rose-950/35 animate-fade-up space-y-3';
+                iconWrap.className = 'w-9 h-9 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0';
+                badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-500/25 text-rose-200 border border-rose-400/40';
+            } else {
+                box.className = 'rounded-2xl p-4 sm:p-5 border border-amber-500/40 bg-amber-950/35 animate-fade-up space-y-3';
+                iconWrap.className = 'w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0';
+                badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/25 text-amber-200 border border-amber-400/40';
+            }
+
+            badge.textContent = opt.badge;
+            document.getElementById('insight-consequence').textContent = opt.consequence;
+            document.getElementById('insight-text').textContent = opt.insight;
+
+            const isLast = state.currentStageIdx >= career.stages.length - 1;
+            const nextBtn = document.getElementById('btn-next-stage');
+            nextBtn.innerHTML = isLast
+                ? `<span>สรุปผล Career Fit & DNA</span><i data-lucide="award" class="w-4 h-4"></i>`
+                : `<span>ด่านถัดไป</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+
+            lucide.createIcons();
+        }
+
+        function advanceStage() {
+            const career = CAREERS[state.currentCareerId];
+            if (state.currentStageIdx < career.stages.length - 1) {
+                state.currentStageIdx++;
+                updateLiveStatus('neutral');
+                ThreeEngine.setVisualState('neutral');
+                renderStage();
+            } else {
+                completeSimulation();
+            }
+        }
+
+        // ============================================================
+        // 7. AR SIMULATION & WEBAR CAMERA CONTROLS
+        // ============================================================
+        function toggleSimulatedAR() {
+            state.arSimActive = !state.arSimActive;
+            const frame = document.getElementById('viewport-frame');
+            const hud = document.getElementById('ar-hud-overlay');
+            const btn = document.getElementById('btn-ar-sim');
+
+            if (state.arSimActive) {
+                frame.classList.remove('bg-slate-950');
+                frame.classList.add('ar-simulated-bg');
+                hud.classList.remove('hidden');
+                btn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500 text-slate-950 border border-cyan-300 text-xs font-bold shadow-md transition-all';
+                showToast('เปิดโหมดจำลอง AR แล้ว — แสดงตารางสแกนและ HUD โทรมาตร', 'success');
+            } else {
+                frame.classList.remove('ar-simulated-bg');
+                frame.classList.add('bg-slate-950');
+                if (!state.webARActive) hud.classList.add('hidden');
+                btn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700 text-xs font-semibold backdrop-blur-md transition-all';
+                showToast('ปิดโหมดจำลอง AR แล้ว', 'info');
+            }
+        }
+
+        async function toggleWebARCamera() {
+            if (state.webARActive) {
+                stopWebARCamera();
+                showToast('ปิดกล้อง WebAR แล้ว กลับสู่พื้นหลังมาตรฐาน', 'info');
+                return;
+            }
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showToast('อุปกรณ์/เบราว์เซอร์นี้ไม่รองรับการเปิดกล้อง — เปลี่ยนเป็นโหมดจำลอง AR ให้แทน', 'info');
+                if (!state.arSimActive) toggleSimulatedAR();
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' },
+                    audio: false
+                });
+                const video = document.getElementById('webar-video');
+                video.srcObject = stream;
+                video.classList.remove('hidden');
+                state.cameraStream = stream;
+                state.webARActive = true;
+
+                document.getElementById('ar-hud-overlay').classList.remove('hidden');
+                document.getElementById('ar-telemetry-text').textContent = 'WEBAR LIVE CAMERA • 3D OVERLAY LOCKED';
+                document.getElementById('btn-webar-text').textContent = 'ปิดกล้อง WebAR';
+                showToast('เปิดกล้องจริง (WebAR) สำเร็จ! โมเดล 3 มิติซ้อนทับบนภาพจริงแล้ว', 'success');
+            } catch (err) {
+                showToast('ไม่ได้รับอนุญาตเข้าถึงกล้อง — เปิดโหมดจำลอง AR แทนให้อัตโนมัติ', 'info');
+                if (!state.arSimActive) toggleSimulatedAR();
+            }
+        }
+
+        function stopWebARCamera() {
+            if (state.cameraStream) {
+                state.cameraStream.getTracks().forEach(t => t.stop());
+                state.cameraStream = null;
+            }
+            const video = document.getElementById('webar-video');
+            if (video) {
+                video.srcObject = null;
+                video.classList.add('hidden');
+            }
+            state.webARActive = false;
+            const txt = document.getElementById('btn-webar-text');
+            if (txt) txt.textContent = 'เปิดกล้องจริง (WebAR)';
+            const tel = document.getElementById('ar-telemetry-text');
+            if (tel) tel.textContent = 'AR SPATIAL MAPPING • 60 FPS • LOCKED';
+            if (!state.arSimActive) {
+                const hud = document.getElementById('ar-hud-overlay');
+                if (hud) hud.classList.add('hidden');
+            }
+        }
+
+        // ============================================================
+        // 8. CAREER FIT & DNA REPORT (CHART.JS RADAR + SUPABASE SAVE)
+        // ============================================================
+        async function completeSimulation() {
+            const careerId = state.currentCareerId;
+            const career = CAREERS[careerId];
+
+            const normSkills = {
+                problem_solving: Math.min(100, Math.round(state.accumulatedSkills.problem)),
+                technical: Math.min(100, Math.round(state.accumulatedSkills.system)),
+                ethics: Math.min(100, Math.round(state.accumulatedSkills.ethics)),
+                communication: Math.min(100, Math.round(state.accumulatedSkills.innovation))
+            };
+
+            const avgKPI = (state.kpis.k1 + state.kpis.k2) / 2;
+            const avgSkill = (normSkills.problem_solving + normSkills.technical + normSkills.ethics + normSkills.communication) / 4;
+            const matchPercent = Math.min(99, Math.max(42, Math.round(avgKPI * 0.45 + avgSkill * 0.55)));
+
+            let rank = 'ระดับเริ่มต้น (Explorer)';
+            if (matchPercent >= 88) rank = 'ระดับผู้เชี่ยวชาญ (Future Visionary)';
+            else if (matchPercent >= 75) rank = 'ระดับมืออาชีพ (Pro Specialist)';
+            else if (matchPercent >= 62) rank = 'ระดับพัฒนาได้ดี (Rising Talent)';
+
+            const skillPairs = [
+                ['การแก้ปัญหาเฉพาะหน้า', normSkills.problem_solving],
+                ['ทักษะเทคนิคและเชิงระบบ', normSkills.technical],
+                ['จริยธรรมและความรอบคอบ', normSkills.ethics],
+                ['การสื่อสารและนวัตกรรม', normSkills.communication]
+            ].sort((a, b) => b[1] - a[1]);
+
+            // Sync latest typed student profile from Lobby if user edited it without clicking Save
+            const lobbyNameEl = document.getElementById('lobby-student-name');
+            const lobbyIdEl = document.getElementById('lobby-student-id');
+            if (lobbyNameEl && lobbyNameEl.value.trim()) state.studentProfile.name = lobbyNameEl.value.trim();
+            if (lobbyIdEl && lobbyIdEl.value.trim()) state.studentProfile.id = lobbyIdEl.value.trim();
+            syncStudentProfileUI();
+
+            const dbPayload = {
+                student_name: state.studentProfile.name,
+                student_id: state.studentProfile.id,
+                career_id: career.id,
+                career_title: career.title,
+                category: career.category,
+                fit_score: matchPercent,
+                skill_problem_solving: normSkills.problem_solving,
+                skill_communication: normSkills.communication,
+                skill_technical: normSkills.technical,
+                skill_ethics: normSkills.ethics
+            };
+
+            state.completedCareers[careerId] = {
+                matchPercent,
+                rank,
+                skills: normSkills,
+                topSkill: skillPairs[0][0],
+                growthSkill: skillPairs[skillPairs.length - 1][0],
+                completedAt: new Date().toISOString(),
+                saveStatus: state.supabaseConnected ? 'saving' : 'local',
+                saveError: null,
+                payload: dbPayload
+            };
+
+            // Add to Local Demo Records immediately
+            state.studentRecords.unshift({
+                ...dbPayload,
+                created_at: new Date().toISOString(),
+                isUser: true
+            });
+
+            renderReport(careerId);
+            setStudentSubView('report');
+
+            // Auto-save to Supabase if connected
+            if (state.supabaseConnected) {
+                const res = await saveResultToSupabase(dbPayload);
+                state.completedCareers[careerId].saveStatus = res.status;
+                state.completedCareers[careerId].saveError = res.error;
+                renderReport(careerId);
+                if (res.status === 'saved') {
+                    showToast(`บันทึกผล "${career.title}" (${matchPercent}%) ลงฐานข้อมูล Supabase สำเร็จ!`, 'success');
+                } else {
+                    showToast(`บันทึกลง Supabase ไม่สำเร็จ: ${res.error}`, 'info');
+                }
+            } else {
+                showToast(`บันทึกผล "${career.title}" (${matchPercent}%) ในโหมด Local Demo แล้ว`, 'success');
+            }
+        }
+
+        async function retrySaveToSupabase(careerId) {
+            const rec = state.completedCareers[careerId];
+            if (!rec || !rec.payload) return;
+            if (!state.supabaseConnected) {
+                openSupabaseModal();
+                return;
+            }
+            rec.saveStatus = 'saving';
+            renderReport(careerId);
+            const res = await saveResultToSupabase(rec.payload);
+            rec.saveStatus = res.status;
+            rec.saveError = res.error;
+            renderReport(careerId);
+            if (res.status === 'saved') {
+                showToast('บันทึกข้อมูลลง Supabase สำเร็จแล้ว!', 'success');
+            } else {
+                showToast(`ยังบันทึกไม่สำเร็จ: ${res.error}`, 'info');
+            }
+        }
+
+        function openSavedReport(careerId) {
+            state.currentCareerId = careerId;
+            renderReport(careerId);
+            setStudentSubView('report');
+        }
+
+        function renderReport(careerId) {
+            const career = CAREERS[careerId];
+            const rec = state.completedCareers[careerId];
+            if (!career || !rec) return;
+
+            const nextSuggestions = Object.values(CAREERS).filter(c => c.id !== careerId && c.isFuture).slice(0, 2);
+            const fallbackSuggestions = nextSuggestions.length > 0 ? nextSuggestions : Object.values(CAREERS).filter(c => c.id !== careerId).slice(0, 2);
+
+            // Save status badge HTML
+            let saveBadgeHtml = '';
+            if (rec.saveStatus === 'saved') {
+                saveBadgeHtml = `
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 text-xs font-bold">
+                        ✅ บันทึกข้อมูลลง Supabase แล้ว
+                    </span>`;
+            } else if (rec.saveStatus === 'saving') {
+                saveBadgeHtml = `
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 text-xs font-bold">
+                        <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> กำลังบันทึกลง Supabase...
+                    </span>`;
+            } else if (rec.saveStatus === 'error') {
+                saveBadgeHtml = `
+                    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/25 text-rose-100 border border-rose-400/50 text-xs font-bold">
+                        ❌ บันทึก Supabase ไม่สำเร็จ
+                        <button onclick="retrySaveToSupabase('${careerId}')" class="underline hover:text-white ml-1">ลองบันทึกอีกครั้ง</button>
+                    </span>`;
+            } else {
+                saveBadgeHtml = `
+                    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-100 border border-amber-400/40 text-xs font-bold">
+                        💾 บันทึกในโหมด Local Demo
+                        <button onclick="openSupabaseModal()" class="underline hover:text-white ml-1">เชื่อมต่อ Supabase</button>
+                    </span>`;
+            }
+
+            document.getElementById('student-report').innerHTML = `
+                <!-- Header Banner -->
+                <div class="rounded-3xl bg-gradient-to-br ${career.gradient} p-6 sm:p-8 shadow-2xl border border-white/15 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div class="space-y-2.5 text-center md:text-left">
+                        <div class="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                            <span class="px-3 py-1 rounded-full bg-slate-950/40 backdrop-blur-md text-white text-xs font-bold border border-white/20">
+                                Career Fit & DNA Report
+                            </span>
+                            <span class="px-3 py-1 rounded-full bg-white text-slate-950 text-xs font-bold">
+                                ${rec.rank}
+                            </span>
+                            ${saveBadgeHtml}
+                        </div>
+                        <h2 class="text-2xl sm:text-3xl font-bold text-white">${career.title}</h2>
+                        <p class="text-white/90 text-sm max-w-xl">
+                            ผู้เรียน: <strong>${escapeHtml(state.studentProfile.name)}</strong> (${escapeHtml(state.studentProfile.id)})
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950/45 backdrop-blur-md rounded-2xl px-8 py-5 text-center border border-white/20 shrink-0">
+                        <span class="block text-xs uppercase tracking-wider text-white/80 font-medium">Career Fit Score</span>
+                        <span class="text-5xl font-bold text-white tracking-tight">${rec.matchPercent}%</span>
+                    </div>
+                </div>
+
+                <!-- Radar Chart & Detailed Analysis -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <!-- Chart.js Radar -->
+                    <div class="lg:col-span-5 bg-slate-900/90 rounded-3xl p-6 border border-slate-800 shadow-xl flex flex-col items-center justify-center">
+                        <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="radar" class="w-4 h-4 text-cyan-400"></i>
+                            กราฟทักษะ 4 มิติ (Skill DNA)
+                        </h3>
+                        <div class="w-full max-w-[330px] h-[300px] relative">
+                            <canvas id="dna-radar-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Insights, Faculties & Future Outlook -->
+                    <div class="lg:col-span-7 bg-slate-900/90 rounded-3xl p-6 border border-slate-800 shadow-xl space-y-5">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30">
+                                <span class="text-[11px] font-bold text-emerald-400 uppercase flex items-center gap-1">
+                                    <i data-lucide="trending-up" class="w-3.5 h-3.5"></i> จุดแข็งที่โดดเด่น
+                                </span>
+                                <p class="text-base font-bold text-white mt-1">${rec.topSkill}</p>
+                                <p class="text-xs text-slate-300 mt-1">คุณแสดงศักยภาพด้านนี้ได้ดีเยี่ยมในการตัดสินใจภายใต้แรงกดดัน</p>
+                            </div>
+                            <div class="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/30">
+                                <span class="text-[11px] font-bold text-amber-400 uppercase flex items-center gap-1">
+                                    <i data-lucide="compass" class="w-3.5 h-3.5"></i> ทักษะที่ควรพัฒนาเพิ่ม
+                                </span>
+                                <p class="text-base font-bold text-white mt-1">${rec.growthSkill}</p>
+                                <p class="text-xs text-slate-300 mt-1">ฝึกฝนด้านนี้เพิ่มเติมเพื่อเพิ่มความรอบด้านในการทำงานจริง</p>
+                            </div>
+                        </div>
+
+                        <!-- Recommended Thai Faculties -->
+                        <div class="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30">
+                            <span class="text-xs font-bold text-indigo-300 flex items-center gap-1.5 mb-2.5">
+                                <i data-lucide="graduation-cap" class="w-4 h-4"></i> คณะ / สาขาวิชาในประเทศไทยที่แนะนำ
+                            </span>
+                            <div class="flex flex-wrap gap-2">
+                                ${career.faculties.map(f => `
+                                    <span class="px-3 py-1.5 rounded-xl bg-slate-950/80 text-indigo-200 border border-indigo-500/30 text-xs font-medium">${f}</span>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Future Job Market Outlook -->
+                        <div class="p-4 rounded-2xl bg-cyan-950/35 border border-cyan-500/30">
+                            <span class="text-xs font-bold text-cyan-300 flex items-center gap-1.5 mb-1.5">
+                                <i data-lucide="globe" class="w-4 h-4"></i> แนวโน้มตลาดแรงงานในอนาคต (Future Job Market Outlook)
+                            </span>
+                            <p class="text-xs sm:text-sm text-slate-200 leading-relaxed">${career.marketOutlook}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Action Bar -->
+                <div class="bg-slate-900/90 rounded-2xl p-5 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button onclick="goToLobby()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold border border-slate-700 transition-colors">
+                            <i data-lucide="layout-grid" class="w-4 h-4"></i> กลับหน้าบทเรียนทั้งหมด
+                        </button>
+                        <button onclick="switchViewMode('counselor')" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-sm font-semibold border border-cyan-500/35 transition-colors">
+                            <i data-lucide="bar-chart-3" class="w-4 h-4"></i> ดูผลในแดชบอร์ดครูแนะแนว
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-slate-400">ลองบทเรียนอื่นต่อ:</span>
+                        ${fallbackSuggestions.map(oc => `
+                            <button onclick="startSimulation('${oc.id}')" class="px-3.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-200 border border-indigo-500/30 text-xs font-semibold transition-colors">
+                                ${oc.title} →
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            lucide.createIcons();
+
+            // Render Chart.js Radar Chart for the 4 tracked skills
+            if (state.charts.radar) {
+                state.charts.radar.destroy();
+                state.charts.radar = null;
+            }
+            const ctx = document.getElementById('dna-radar-chart').getContext('2d');
+            state.charts.radar = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: [
+                        'แก้ปัญหาเฉพาะหน้า',
+                        'ทักษะเทคนิค/เชิงระบบ',
+                        'จริยธรรมและความรอบคอบ',
+                        'สื่อสารและนวัตกรรม'
+                    ],
+                    datasets: [{
+                        label: 'คะแนนทักษะของคุณ',
+                        data: [
+                            rec.skills.problem_solving,
+                            rec.skills.technical,
+                            rec.skills.ethics,
+                            rec.skills.communication
+                        ],
+                        backgroundColor: 'rgba(34, 211, 238, 0.22)',
+                        borderColor: '#22d3ee',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#22d3ee',
+                        pointBorderColor: '#020617',
+                        pointRadius: 4.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 100,
+                            ticks: { stepSize: 25, display: false },
+                            grid: { color: 'rgba(148, 163, 184, 0.2)' },
+                            angleLines: { color: 'rgba(148, 163, 184, 0.2)' },
+                            pointLabels: {
+                                color: '#e2e8f0',
+                                font: { family: 'Prompt', size: 11, weight: '500' }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // ============================================================
+        // 9. COUNSELOR DASHBOARD (LIVE SUPABASE + SEARCH + CSV EXPORT)
+        // ============================================================
+        function getActiveDashboardRecords() {
+            return state.supabaseConnected ? state.supabaseRecords : state.studentRecords;
+        }
+
+        async function refreshCounselorData() {
+            if (!state.supabaseConnected) {
+                renderCounselorDashboard();
+                showToast('รีเฟรชข้อมูลในโหมด Local Demo แล้ว', 'info');
+                return;
+            }
+            renderCounselorDashboard();
+            await fetchSupabaseResults();
+            renderCounselorDashboard();
+            showToast(`ดึงข้อมูลล่าสุดจาก Supabase แล้ว (${state.supabaseRecords.length} รายการ)`, 'success');
+        }
+
+        function onDashboardFilterChange() {
+            const searchEl = document.getElementById('dash-search-input');
+            const careerEl = document.getElementById('dash-career-filter');
+            state.dashboardSearch = searchEl ? searchEl.value.trim().toLowerCase() : '';
+            state.dashboardCareerFilter = careerEl ? careerEl.value : 'all';
+            renderDashboardTableRows();
+        }
+
+        function exportDashboardCSV() {
+            const records = getActiveDashboardRecords();
+            if (!records.length) {
+                showToast('ยังไม่มีข้อมูลสำหรับส่งออก CSV', 'info');
+                return;
+            }
+            const headers = [
+                'Timestamp', 'Student Name', 'Student ID', 'Career ID', 'Career Title',
+                'Category', 'Fit Score (%)', 'Problem Solving', 'Communication', 'Technical', 'Ethics'
+            ];
+            const rows = records.map(r => [
+                r.created_at || '',
+                `"${String(r.student_name || '').replace(/"/g, '""')}"`,
+                `"${String(r.student_id || '').replace(/"/g, '""')}"`,
+                r.career_id || '',
+                `"${String(r.career_title || '').replace(/"/g, '""')}"`,
+                r.category || '',
+                r.fit_score ?? 0,
+                r.skill_problem_solving ?? 0,
+                r.skill_communication ?? 0,
+                r.skill_technical ?? 0,
+                r.skill_ethics ?? 0
+            ].join(','));
+
+            const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `career-sandbox-results-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(`ส่งออกไฟล์ CSV (${records.length} รายการ) เรียบร้อยแล้ว`, 'success');
+        }
+
+        function formatThaiTimestamp(iso) {
+            if (!iso) return '-';
+            try {
+                const d = new Date(iso);
+                return d.toLocaleString('th-TH', {
+                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                });
+            } catch {
+                return iso;
+            }
+        }
+
+        function renderDashboardTableRows() {
+            const tbody = document.getElementById('counselor-table-body');
+            if (!tbody) return;
+            const records = getActiveDashboardRecords();
+
+            const filtered = records.filter(r => {
+                const matchCareer = state.dashboardCareerFilter === 'all' || r.career_id === state.dashboardCareerFilter;
+                const q = state.dashboardSearch;
+                const matchSearch = !q ||
+                    String(r.student_name || '').toLowerCase().includes(q) ||
+                    String(r.student_id || '').toLowerCase().includes(q) ||
+                    String(r.career_title || '').toLowerCase().includes(q);
+                return matchCareer && matchSearch;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="py-10 text-center text-slate-400 text-sm">
+                            ${state.supabaseLoading ? 'กำลังโหลดข้อมูลจาก Supabase...' : 'ไม่พบข้อมูลผลการทดสอบตามเงื่อนไขที่ค้นหา'}
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(r => {
+                const isFuture = r.category === 'future';
+                return `
+                    <tr class="${r.isUser ? 'bg-cyan-500/10' : 'hover:bg-slate-800/40'} transition-colors">
+                        <td class="py-3.5 px-3 font-semibold text-white whitespace-nowrap">
+                            ${escapeHtml(r.student_name)}
+                            ${r.isUser ? `<span class="ml-1.5 px-2 py-0.5 rounded-full bg-cyan-500 text-slate-950 text-[10px] font-bold">NEW</span>` : ''}
+                        </td>
+                        <td class="py-3.5 px-3 text-slate-400 text-xs whitespace-nowrap">${escapeHtml(r.student_id)}</td>
+                        <td class="py-3.5 px-3 whitespace-nowrap">
+                            <span class="font-medium text-slate-200">${escapeHtml(r.career_title)}</span>
+                            ${isFuture ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 text-[10px] font-bold">อนาคต ✨</span>` : ''}
+                        </td>
+                        <td class="py-3.5 px-3 text-center">
+                            <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${r.fit_score >= 85 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">
+                                ${r.fit_score}%
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-3">
+                            <div class="flex flex-wrap gap-1 text-[10px] font-mono">
+                                <span class="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300" title="แก้ปัญหา">แก้ปัญหา:${r.skill_problem_solving ?? '-'}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-300" title="เทคนิค">เทคนิค:${r.skill_technical ?? '-'}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300" title="จริยธรรม">จริยธรรม:${r.skill_ethics ?? '-'}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-slate-800 text-fuchsia-300" title="สื่อสาร">สื่อสาร:${r.skill_communication ?? '-'}</span>
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-3 text-right text-xs text-slate-400 font-mono whitespace-nowrap">${formatThaiTimestamp(r.created_at)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderCounselorDashboard() {
+            const records = getActiveDashboardRecords();
+            const totalCompleted = records.length;
+            const avgMatch = totalCompleted > 0
+                ? Math.round(records.reduce((s, r) => s + Number(r.fit_score || 0), 0) / totalCompleted)
+                : 0;
+
+            const careerCounts = {};
+            Object.keys(CAREERS).forEach(k => careerCounts[k] = 0);
+            records.forEach(r => {
+                if (careerCounts[r.career_id] !== undefined) careerCounts[r.career_id]++;
+            });
+
+            // Most popular career overall
+            const allIds = Object.keys(CAREERS);
+            let topCareerId = allIds[0];
+            allIds.forEach(id => {
+                if (careerCounts[id] > careerCounts[topCareerId]) topCareerId = id;
+            });
+
+            const coreTotal = records.filter(r => r.category === 'core').length;
+            const futureTotal = records.filter(r => r.category === 'future').length;
+            const futurePct = totalCompleted > 0 ? Math.round((futureTotal / totalCompleted) * 100) : 0;
+
+            const sourceBadge = state.supabaseConnected
+                ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/35 text-[11px] font-bold"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live Supabase Data</span>`
+                : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/35 text-[11px] font-bold"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Local Demo Data</span>`;
+
+            document.getElementById('mode-counselor').innerHTML = `
+                <!-- Header -->
+                <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 shadow-lg flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                            <i data-lucide="school" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h2 class="text-xl font-bold text-white">แดชบอร์ดครูแนะแนว (Counselor Analytics)</h2>
+                                ${sourceBadge}
+                            </div>
+                            <p class="text-sm text-slate-400 mt-0.5">ติดตามผลคะแนน Career Fit และแนวโน้มความสนใจอาชีพของนักเรียนแบบเรียลไทม์</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="refreshCounselorData()" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-xs font-semibold transition-all">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 ${state.supabaseLoading ? 'animate-spin' : ''}"></i>
+                            <span>รีเฟรชข้อมูล (Refresh)</span>
+                        </button>
+                        <button onclick="exportDashboardCSV()" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/35 text-xs font-semibold transition-all">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Export CSV</span>
+                        </button>
+                        <button onclick="goToLobby()" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white text-xs font-semibold shadow-md">
+                            <i data-lucide="gamepad-2" class="w-4 h-4"></i> โหมดผู้เรียน
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-slate-900/90 rounded-2xl p-5 border border-slate-800">
+                        <p class="text-xs font-medium text-slate-400">จำนวนครั้งที่ทำแบบทดสอบทั้งหมด</p>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <span class="text-3xl font-bold text-white">${totalCompleted}</span>
+                            <span class="text-xs text-cyan-400">ครั้ง</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/90 rounded-2xl p-5 border border-slate-800">
+                        <p class="text-xs font-medium text-slate-400">คะแนนความเข้ากันได้เฉลี่ย</p>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <span class="text-3xl font-bold text-emerald-400">${avgMatch}%</span>
+                            <span class="text-xs text-slate-400">Avg. Fit Score</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/90 rounded-2xl p-5 border border-indigo-500/30">
+                        <p class="text-xs font-medium text-indigo-300">อาชีพยอดนิยม</p>
+                        <p class="text-base font-bold text-white mt-2 truncate">${totalCompleted > 0 ? CAREERS[topCareerId].title : '-'}</p>
+                    </div>
+                    <div class="bg-slate-900/90 rounded-2xl p-5 border border-cyan-500/30">
+                        <p class="text-xs font-medium text-cyan-300">สัดส่วนความสนใจอาชีพแห่งอนาคต ✨</p>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <span class="text-3xl font-bold text-cyan-400">${futurePct}%</span>
+                            <span class="text-xs text-slate-400">(${futureTotal}/${totalCompleted})</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row: Bar (6 Careers) + Doughnut (Core vs Future) -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-8 bg-slate-900/90 rounded-2xl p-6 border border-slate-800">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i>
+                                สถิติจำนวนครั้งที่จำลองแยกตาม 6 อาชีพ
+                            </h3>
+                            <span class="text-[11px] text-slate-400">สีฟ้า/เขียว/ม่วง = อาชีพแห่งอนาคต ✨</span>
+                        </div>
+                        <div class="h-[260px] w-full relative">
+                            <canvas id="counselor-bar-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl p-6 border border-slate-800 flex flex-col justify-between">
+                        <h3 class="text-base font-bold text-white flex items-center gap-2 mb-3">
+                            <i data-lucide="pie-chart" class="w-4 h-4 text-fuchsia-400"></i>
+                            สัดส่วนอาชีพหลัก vs อนาคต
+                        </h3>
+                        <div class="h-[210px] w-full relative">
+                            <canvas id="counselor-doughnut-chart"></canvas>
+                        </div>
+                        <p class="text-xs text-slate-400 text-center mt-3">
+                            นักเรียนสนใจอาชีพแห่งอนาคต <strong class="text-cyan-300">${futurePct}%</strong> ของการทดสอบทั้งหมด
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Student Results Table with Search & Career Filter -->
+                <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 overflow-hidden space-y-4">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <i data-lucide="users" class="w-4 h-4 text-indigo-400"></i>
+                            ตารางผลการทดสอบผู้เรียนทั้งหมด
+                        </h3>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <div class="relative">
+                                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                                <input type="text" id="dash-search-input" value="${escapeHtml(state.dashboardSearch)}" oninput="onDashboardFilterChange()" placeholder="ค้นหาชื่อ หรือรหัสนักเรียน..." class="pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:border-cyan-400 outline-none w-full sm:w-56">
+                            </div>
+                            <select id="dash-career-filter" onchange="onDashboardFilterChange()" class="px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:border-cyan-400 outline-none">
+                                <option value="all" ${state.dashboardCareerFilter === 'all' ? 'selected' : ''}>ทุกอาชีพ (6)</option>
+                                ${Object.values(CAREERS).map(c => `
+                                    <option value="${c.id}" ${state.dashboardCareerFilter === c.id ? 'selected' : ''}>${c.title}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
+                                    <th class="py-3 px-3">ชื่อนักเรียน</th>
+                                    <th class="py-3 px-3">รหัส / ชั้นเรียน</th>
+                                    <th class="py-3 px-3">อาชีพที่จำลอง</th>
+                                    <th class="py-3 px-3 text-center">Fit Score</th>
+                                    <th class="py-3 px-3">คะแนนทักษะ 4 ด้าน</th>
+                                    <th class="py-3 px-3 text-right">เวลาบันทึก</th>
+                                </tr>
+                            </thead>
+                            <tbody id="counselor-table-body" class="divide-y divide-slate-800/70 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            renderDashboardTableRows();
+            lucide.createIcons();
+
+            // Destroy old charts if any
+            if (state.charts.bar) state.charts.bar.destroy();
+            if (state.charts.doughnut) state.charts.doughnut.destroy();
+
+            // Bar Chart across 6 Careers
+            const barCtx = document.getElementById('counselor-bar-chart').getContext('2d');
+            const careerList = Object.values(CAREERS);
+            state.charts.bar = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: careerList.map(c => c.title.length > 16 ? c.title.slice(0, 16) + '…' : c.title),
+                    datasets: [{
+                        label: 'จำนวนครั้งที่จำลอง',
+                        data: careerList.map(c => careerCounts[c.id]),
+                        backgroundColor: [
+                            'rgba(244, 63, 94, 0.75)',
+                            'rgba(245, 158, 11, 0.75)',
+                            'rgba(139, 92, 246, 0.75)',
+                            'rgba(6, 182, 212, 0.85)',
+                            'rgba(16, 185, 129, 0.85)',
+                            'rgba(217, 70, 239, 0.85)'
+                        ],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1, color: '#94a3b8', font: { family: 'Prompt' } },
+                            grid: { color: 'rgba(148, 163, 184, 0.12)' }
+                        },
+                        x: {
+                            ticks: { color: '#cbd5e1', font: { family: 'Prompt', size: 11 } },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+
+            // Doughnut Chart (Core vs Future)
+            const dCtx = document.getElementById('counselor-doughnut-chart').getContext('2d');
+            state.charts.doughnut = new Chart(dCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['อาชีพหลัก', 'อาชีพแห่งอนาคต ✨'],
+                    datasets: [{
+                        data: [coreTotal, futureTotal],
+                        backgroundColor: ['#6366f1', '#22d3ee'],
+                        borderColor: '#0f172a',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '64%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#e2e8f0', font: { family: 'Prompt', size: 12 }, padding: 14 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ============================================================
+        // 10. HELPERS, TOAST NOTIFICATIONS & INITIALIZATION
+        // ============================================================
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const borderCls = type === 'success' ? 'border-emerald-400' : 'border-cyan-400';
+            const iconName = type === 'success' ? 'check-circle-2' : 'info';
+            const iconCls = type === 'success' ? 'text-emerald-400' : 'text-cyan-400';
+
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900/95 text-white shadow-2xl border border-slate-700 border-l-4 ${borderCls} text-xs sm:text-sm font-medium animate-fade-up`;
+            toast.innerHTML = `
+                <i data-lucide="${iconName}" class="w-4 h-4 shrink-0 ${iconCls}"></i>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3600);
+        }
+
+        window.onload = async function () {
+            loadSavedStudentProfile();
+            switchViewMode('student');
+            renderLobby();
+            lucide.createIcons();
+
+            // Auto-reconnect to Supabase if credentials are saved in localStorage
+            const savedUrl = localStorage.getItem(STORAGE_KEYS.SB_URL);
+            const savedKey = localStorage.getItem(STORAGE_KEYS.SB_KEY);
+            if (savedUrl && savedKey) {
+                await initSupabaseConnection(savedUrl, savedKey, false);
+            } else {
+                updateSupabaseNavIndicator();
+            }
+        };
+    </script>
+</body>
+</html>
